@@ -112,8 +112,8 @@ double checkSolution(double xStart, double yStart,
 
 int main(int argc, char **argv)
 {
-    int n, m, mits;
-    double alpha, tol, relax;
+    int n, m, maxIterationCount;
+    double alpha, maxAcceptableError, relax;
     double maxAcceptableError;
     double error;
     double *u, *u_old, *tmp;
@@ -128,12 +128,12 @@ int main(int argc, char **argv)
 //    printf("Input relax - successive over-relaxation parameter:\n");
     scanf("%lf", &relax);
 //    printf("Input tol - error tolerance for the iterrative solver:\n");
-    scanf("%lf", &tol);
+    scanf("%lf", &maxAcceptableError);
 //    printf("Input mits - maximum solver iterations:\n");
-    scanf("%d", &mits);
+    scanf("%d", &maxIterationCount);
 
 
-    printf("-> %d, %d, %g, %g, %g, %d\n", n, m, alpha, relax, tol, mits);
+    printf("-> %d, %d, %g, %g, %g, %d\n", n, m, alpha, relax, maxAcceptableError, maxIterationCount);
 
     allocCount = (n+2)*(m+2);
     // Those two calls also zero the boundary elements
@@ -147,8 +147,6 @@ int main(int argc, char **argv)
         printf("Not enough memory for two %ix%i matrices\n", n+2, m+2);
         exit(1);
     }
-    maxIterationCount = mits;
-    maxAcceptableError = tol;
 
     // Solve in [-1, 1] x [-1, 1]
     double xLeft = -1.0, xRight = 1.0;
