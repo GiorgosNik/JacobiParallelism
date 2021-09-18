@@ -45,7 +45,7 @@
  * NOTE: u(0,*), u(maxXCount-1,*), u(*,0) and u(*,maxYCount-1)
  * are BOUNDARIES and therefore not part of the solution.
  *************************************************************/
- double one_jacobi_iteration(double xStart, double yStart,
+ static inline double one_jacobi_iteration(double xStart, double yStart,
                             int maxXCount, int maxYCount,
                             double *src, double *dst,
                             double deltaX, double deltaY,
@@ -85,7 +85,7 @@
 /**********************************************************
  * Checks the error between numerical and exact solutions
  **********************************************************/
-double checkSolution(double xStart, double yStart,
+static inline double checkSolution(double xStart, double yStart,
                      int maxXCount, int maxYCount,
                      double *u,
                      double deltaX, double deltaY,
