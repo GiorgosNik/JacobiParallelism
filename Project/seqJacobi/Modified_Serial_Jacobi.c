@@ -114,11 +114,10 @@ int main(int argc, char **argv)
 {
     int n, m, maxIterationCount;
     double alpha, maxAcceptableError, relax;
-    double maxAcceptableError;
     double error;
     double *u, *u_old, *tmp;
     int allocCount;
-    int iterationCount, maxIterationCount;
+    int iterationCount;
     double t1, t2;
 
 //    printf("Input n,m - grid dimension in x,y direction:\n");
