@@ -73,54 +73,94 @@ static inline double checkSolution(double xStart, double yStart,
     return sqrt(error)/((maxXCount-2)*(maxYCount-2));
 }
 
+static inline int * getNeighbours(MPI_Comm cart_comm,int myRank,int side){
+    int *Neighbours;
+    int cords[2];
+    int neighbourCords[2];
+    int upNeighbour,downNeighbour,leftNeighour,rightNeighbour;
+    Neighbours=malloc(sizeof(int)*4);
+    //Get my coordinates in the grid
+    MPI_Cart_coords(cart_comm,myRank,2,cords);
 
+    //Get my Neighbours in the grid
+    if(cords[0]>0){
+            neighbourCords[0]=cords[0]-1;
+            neighbourCords[1]=cords[1];
+            MPI_Cart_rank(cart_comm, neighbourCords, &upNeighbour);
+            printf("Up Neighbour: %d\n",upNeighbour);
+            Neighbours[0]=upNeighbour;
+    }else{
+        Neighbours[0]=-1;
+    }
+        
+    if(cords[0]<side-1){
+        neighbourCords[0]=cords[0]+1;
+        neighbourCords[1]=cords[1];
+        MPI_Cart_rank(cart_comm, neighbourCords, &downNeighbour);
+        printf("Down Neighbour: %d\n",downNeighbour);
+         Neighbours[1]=downNeighbour;
+    }else{
+        Neighbours[1]=-1;
+    }
+    if(cords[1]<side-1){
+        neighbourCords[0]=cords[0];
+        neighbourCords[1]=cords[1]+1;
+        MPI_Cart_rank(cart_comm, neighbourCords, &rightNeighbour);
+        printf("Right Neighbour: %d\n",rightNeighbour);
+        Neighbours[2]=rightNeighbour;
+    }else{
+        Neighbours[2]=-1;
+    }
+    if(cords[1]>0){
+        neighbourCords[0]=cords[0];
+        neighbourCords[1]=cords[1]-1;
+        MPI_Cart_rank(cart_comm, neighbourCords, &lefttNeighbour);
+        printf("Left Neighbour: %d\n",leftNeighbour);
+        Neighbours[3]=leftNeighbour;
+    }else{
+        Neighbours[3]=-1;
+    }
+    return Neighbours;
+}
 int main(int argc, char **argv)
 {
-    int n, m, maxIterationCount;
-    double alpha, maxAcceptableError, relax;
-    double error;
+    int n, m, maxIterationCount,allocCount,iterationCount;
+    double alpha, maxAcceptableError, relax,error;
     double *u, *u_old, *tmp;
-    int allocCount;
-    int iterationCount;
     double t1, t2;
     int my_rank, comm_sz,local_n;   
     double a = 0.0, b = 3.0, h, local_a, local_b;
     double local_int, total_int;
     int source, prov; 
     int control = 0;
-    int message;
-    int receiver_id;
+    int receiver_id,message;
     MPI_Comm cart_comm;
+    MPI_Status status;
     int dim[] = {2,2};
     int period[] = {0, 0};
     int reorder = 1;
-    MPI_Status status;
-
+    int side;
+    int *myNeighbours;
 
     
-    // Solve in [-1, 1] x [-1, 1]
-    double xLeft = -1.0, xRight = 1.0;
-    double yBottom = -1.0, yUp = 1.0;
-
-    double deltaX = (xRight-xLeft)/(n-1);
-    double deltaY = (yUp-yBottom)/(m-1);
-
-    iterationCount = 0;
-    error = HUGE_VAL;
     clock_t start = clock(), diff;
     int cords[2];
     int neighbourCords[2];
-    int neighbourRank;
+    int upNeighbour,downNeighbour,leftNeighour,rightNeighbour;
 
     //######### START OF MPI #########
     MPI_Init(&argc, &argv);
     MPI_Cart_create(MPI_COMM_WORLD, 2, dim, period, reorder,&cart_comm);
     t1 = MPI_Wtime();
-    MPI_Pcontrol(0);
+    MPI_Pcontrol(control);
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
     MPI_Cart_coords(cart_comm,my_rank,2,cords);
-    printf("Cords =:%d %d\n",cords[0],cords[1]);
+
+
+    //Get the size of the square
+    side=sqrt(comm_zs);
+    MPI_Cart_coords(cart_comm,my_rank,2,cords);
     if(my_rank==0){
         printf("I AM MASTER\n");
         scanf("%d,%d", &n, &m);
@@ -130,7 +170,7 @@ int main(int argc, char **argv)
         scanf("%d", &maxIterationCount);
         printf("-> %d, %d, %g, %g, %g, %d\n", n, m, alpha, relax, maxAcceptableError, maxIterationCount);
         allocCount = (n+2)*(m+2);
-        u = 	(double*)calloc(allocCount, sizeof(double)); //reverse order
+        u = (double*)calloc(allocCount, sizeof(double)); //reverse order
         u_old = (double*)calloc(allocCount, sizeof(double));
         if (u == NULL || u_old == NULL)
         {
@@ -143,18 +183,12 @@ int main(int argc, char **argv)
             printf("Sending %d to %d\n",message,receiver_id);
             MPI_Send( &message, 1 , MPI_INT,receiver_id, send_data_tag, MPI_COMM_WORLD);
         }
-    }
-    if(my_rank!=0){
-        if(cords[0]>0){
-            neighbourCords[0]=cords[0]-1;
-            neighbourCords[1]=cords[1];
-            MPI_Cart_rank(cart_comm, neighbourCords, &neighbourRank);
-            printf("Above Neighbour: %d\n",neighbourRank);
-        }
+        message = 0;
+    }else if(my_rank!=0){
         MPI_Recv( &message, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-        printf("My rank is: %d,Cords :[%d:%d], My message is: %d\n",my_rank,cords[0],cords[1],message);
     }
-
+    myNeighbours=getNeighbours(cart_comm,my_rank,side);
+    printf("My rank is: %d\n My message is: %d\nMy Up is %d\n My Down is %d \n My Left is %d My Right is %d",my_rank,message,myNeighbours[0],myNeighbours[1],myNeighbours[3],myNeighbours[2]);
 
 
     t2 = MPI_Wtime();
