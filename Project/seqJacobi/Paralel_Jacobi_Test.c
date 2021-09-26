@@ -130,14 +130,14 @@ static inline int setup(double *u, double * u_old,int n,int m,int allocCount){
 }
 
 static inline int getSizes(int n, int m, int procs, int* sizeX, int* sizeY, int* rowSize, int* collumnSize){
-    if(sqrt(procs)%1!=0){
-        *sizeX=sqrt(procs)%1;
+    if(sqrt(procs)==(int)procs){
+        *sizeX=sqrt(procs);
         *sizeY=*sizeX;
     }else{
         *sizeX=8;
         *sizeY=10;
     }
-    *rowSize=(n/ *sizeX+2)%1;
+    *rowSize=(n/ *sizeX+2);
     *collumnSize=(m/ *sizeY+2)%1;
     return 0;
 }
