@@ -129,7 +129,7 @@ static inline int setup(double *u, double * u_old,int n,int m,int allocCount){
         return(0);
 }
 
-static inline int getSizes(int n, int m, int procs, int* sizeX, int* sizeY, int* rowSize, int* collumnSize){
+static inline int getSizes(int n, int m, int procs, int* sizeX, int* sizeY, int* rowSize, int* columnSize){
     if(sqrt(procs)==(int)procs){
         *sizeX=sqrt(procs);
         *sizeY=*sizeX;
@@ -137,15 +137,12 @@ static inline int getSizes(int n, int m, int procs, int* sizeX, int* sizeY, int*
         *sizeX=8;
         *sizeY=10;
     }
-    *rowSize=(n/ *sizeX+2);
-    *collumnSize=(m/ *sizeY+2)%1;
+    *rowSize=(n/ *sizeX);
+    *columnSize=(m/ *sizeY)%1;
     return 0;
 }
 
-int main(int argc, char **argv)
-{
-    
-    
+int main(int argc, char **argv){
 
     // Setup for MPI
     int source, prov; 
@@ -153,6 +150,8 @@ int main(int argc, char **argv)
     int receiver_id,message;
     MPI_Comm cart_comm;
     MPI_Status status;
+    MPI_Datatype column_type;
+    MPI_Datatype row_type;
     int dim[] = {2,2};
     int period[] = {0, 0};
     int reorder = 1;
@@ -162,6 +161,10 @@ int main(int argc, char **argv)
     int cords[2];
     int neighbourCords[2];
     int upNeighbour,downNeighbour,leftNeighour,rightNeighbour;
+    int* sizeX;
+    int* sizeY;
+    int* rowSize;
+    int* columnSize;
 
     // General Setup
     int n, m, maxIterationCount,allocCount,iterationCount;
@@ -196,6 +199,9 @@ int main(int argc, char **argv)
 
     //Get the size of the square
     side=sqrt(comm_sz);
+    
+    
+
     MPI_Cart_coords(cart_comm,my_rank,2,cords);
     if(my_rank==0){
         scanf("%d,%d", &n, &m);
@@ -238,6 +244,15 @@ int main(int argc, char **argv)
     // Check Neighbours
     myNeighbours=getNeighbours(cart_comm,my_rank,side);
     printf("My rank is: %d  My message is: %d My Up is %d My Down is %d My Left is %d My Right is %d\n",my_rank,message,myNeighbours[0],myNeighbours[1],myNeighbours[3],myNeighbours[2]);
+
+    // Get Dimensions of Grid and create custom column and row datatypes
+    getSizes(n, m, sizeX, sizeY, rowSize, columnSize)
+    MPI_Type_vector(*columnSize, 1, *columnSize, MPI_DOUBLE, &column_type);
+    MPI_Type_commit(&column_type);
+
+    MPI_Type_contiguous(*rowSize, MPI_DOUBLE, &row_type);
+    MPI_Type_commit(&row_type);
+
 
 
     t2 = MPI_Wtime();
