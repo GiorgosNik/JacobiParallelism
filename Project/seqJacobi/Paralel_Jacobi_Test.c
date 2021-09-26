@@ -181,8 +181,8 @@ int main(int argc, char **argv){
     double xLeft = -1.0, xRight = 1.0;
     double yBottom = -1.0, yUp = 1.0;
 
-    double deltaX = (xRight-xLeft)/(n-1);
-    double deltaY = (yUp-yBottom)/(m-1);
+    double deltaX;
+    double deltaY;
 
     iterationCount = 0;
     error = HUGE_VAL;
@@ -244,6 +244,10 @@ int main(int argc, char **argv){
     // Check Neighbours
     myNeighbours=getNeighbours(cart_comm,my_rank,side);
     printf("My rank is: %d  My message is: %d My Up is %d My Down is %d My Left is %d My Right is %d\n",my_rank,message,myNeighbours[0],myNeighbours[1],myNeighbours[3],myNeighbours[2]);
+
+    // Calculate Deltas
+    deltaX = (xRight-xLeft)/(n-1);
+    deltaY = (yUp-yBottom)/(m-1);
 
     // Get Dimensions of Grid and create custom column and row datatypes
     getSizes(n, m, sizeX, sizeY, rowSize, columnSize)
