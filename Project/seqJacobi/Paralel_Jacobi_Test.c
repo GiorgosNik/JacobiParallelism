@@ -173,6 +173,8 @@ int main(int argc, char **argv)
     double local_int, total_int;
     
     // Setup for Jacobi
+    int buffInt[3];
+    double buffDouble[3];
     double xLeft = -1.0, xRight = 1.0;
     double yBottom = -1.0, yUp = 1.0;
 
@@ -202,6 +204,13 @@ int main(int argc, char **argv)
         scanf("%lf", &maxAcceptableError);
         scanf("%d", &maxIterationCount);
         printf("-> %d, %d, %g, %g, %g, %d\n", n, m, alpha, relax, maxAcceptableError, maxIterationCount);
+        buffInt[0]=n;
+        buffInt[1]=m;
+        buffInt[2]=maxIterationCount;
+        buffDouble[0]=alpha;
+        buffDouble[1]=relax;
+        buffDouble[2]=maxAcceptableError;
+
         if (setup(u,u_old,n,m,allocCount)==1){
             exit(1);
         }
@@ -213,6 +222,20 @@ int main(int argc, char **argv)
     }else if(my_rank!=0){
         MPI_Recv( &message, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
     }
+    // Broadcast Input
+    MPI_Bcast(buffInt, 3, MPI_INT, 0, MPI_COMM_WORLD);
+    n=buffInt[0];
+    m=buffInt[1];
+    maxIterationCount=buffInt[2];
+    printf("-> %d, %d, %d\n", n, m, maxIterationCount);
+
+    MPI_Bcast(buffDouble, 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    alpha=buffDouble[0];
+    relax=buffDouble[1];
+    maxAcceptableError=buffDouble[2];
+    printf("-> %g, %g, %g\n", alpha, relax, maxAcceptableError);
+
+    // Check Neighbours
     myNeighbours=getNeighbours(cart_comm,my_rank,side);
     printf("My rank is: %d  My message is: %d My Up is %d My Down is %d My Left is %d My Right is %d\n",my_rank,message,myNeighbours[0],myNeighbours[1],myNeighbours[3],myNeighbours[2]);
 
