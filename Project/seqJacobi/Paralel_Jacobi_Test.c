@@ -130,15 +130,16 @@ static inline int setup(double *u, double * u_old,int n,int m,int allocCount){
 }
 
 static inline int getSizes(int n, int m, int procs, int* sizeX, int* sizeY, int* rowSize, int* columnSize){
-    if(sqrt(procs)==(int)procs){
-        *sizeX=sqrt(procs);
+    int size;
+    if(sqrt(procs)==ceil(sqrt(procs))){
+        *sizeX=(int)sqrt(procs);
         *sizeY=*sizeX;
     }else{
         *sizeX=8;
         *sizeY=10;
     }
-    *rowSize=(n/ *sizeX);
-    *columnSize=(m/ *sizeY)%1;
+    *rowSize=(int)(n/ *sizeX);
+    *columnSize=(int)(m/ *sizeY)%1;
     return 0;
 }
 
@@ -161,10 +162,10 @@ int main(int argc, char **argv){
     int cords[2];
     int neighbourCords[2];
     int upNeighbour,downNeighbour,leftNeighour,rightNeighbour;
-    int* sizeX;
-    int* sizeY;
-    int* rowSize;
-    int* columnSize;
+    int sizeX;
+    int sizeY;
+    int rowSize;
+    int columnSize;
 
     // General Setup
     int n, m, maxIterationCount,allocCount,iterationCount;
@@ -250,13 +251,12 @@ int main(int argc, char **argv){
     deltaY = (yUp-yBottom)/(m-1);
 
     // Get Dimensions of Grid and create custom column and row datatypes
-    getSizes(n, m, sizeX, sizeY, rowSize, columnSize)
-    MPI_Type_vector(*columnSize, 1, *columnSize, MPI_DOUBLE, &column_type);
+    getSizes(n, m, comm_sz, &sizeX, &sizeY, &rowSize, &columnSize);
+    MPI_Type_vector(columnSize, 1, columnSize, MPI_DOUBLE, &column_type);
     MPI_Type_commit(&column_type);
 
-    MPI_Type_contiguous(*rowSize, MPI_DOUBLE, &row_type);
+    MPI_Type_contiguous(rowSize, MPI_DOUBLE, &row_type);
     MPI_Type_commit(&row_type);
-
 
 
     t2 = MPI_Wtime();
