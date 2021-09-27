@@ -71,7 +71,7 @@ static inline double checkSolution(double xStart, double yStart,
     return sqrt(error)/((maxXCount-2)*(maxYCount-2));
 }
 
-static inline int * getNeighbors(MPI_Comm cart_comm,int myRank,int sizeX, int sizeY){
+static inline int* getNeighbors(MPI_Comm cart_comm,int myRank,int sizeX, int sizeY){
     int *Neighbors;
     int cords[2];
     int neighborCords[2];
@@ -143,13 +143,13 @@ static inline int getSizes(int n, int m, int procs, int* sizeX, int* sizeY, int*
     return 0;
 }
 
-static inline int calculateDims(int rowSize, int columnSize, int* cords, double* startX, double * endX, double* startY, double* endY){
-    double strideX = 2/rowSize;
-    double strideY = 2/columnSize;
-    *startX = -1+strideX*cords[0];
-    *startY = -1+strideY*cords[-1];
-    *endX = *startX+strideX;
-    *endY = *startY+strideY;
+static inline int calculateDims(int rowSize, int columnSize, int* cords, double* xLeft, double * xRight, double* yLeft, double* yRight, double* deltaX, double* deltaY){
+    *deltaX = 2/rowSize - 1;
+    *deltaY = 2/columnSize - 1;
+    *xLeft = -1 + (*deltaX) * cords[0];
+    *yLeft = -1+(*deltaY)*cords[-1];
+    *xRight = *xLeft+(*deltaX);
+    *yRight = *yLeft+(*deltaY);
     return 0;
 }
 
@@ -158,7 +158,7 @@ int main(int argc, char **argv){
     // Setup for MPI
     int source, prov; 
     int control = 0;
-    int receiver_id,message;
+    int receiver_id;
     MPI_Comm cart_comm;
     MPI_Status status;
     MPI_Datatype column_type;
@@ -185,11 +185,12 @@ int main(int argc, char **argv){
     double a = 0.0, b = 3.0, h, local_a, local_b;
     double local_int, total_int;
     
+    
     // Setup for Jacobi
     int buffInt[3];
     double buffDouble[3];
-    double xLeft = -1.0, xRight = 1.0;
-    double yBottom = -1.0, yUp = 1.0;
+    double xLeft, xRight;
+    double yBottom, yUp;
 
     double deltaX;
     double deltaY;
@@ -226,53 +227,43 @@ int main(int argc, char **argv){
         if (setup(u,u_old,n,m,allocCount)==1){
             exit(1);
         }
-        for(receiver_id=1;receiver_id<comm_sz;receiver_id++){
-            message=receiver_id*2;
-            MPI_Send( &message, 1 , MPI_INT,receiver_id, send_data_tag, MPI_COMM_WORLD);
-        }
-
-        message = 0;
-    }else if(my_rank != 0){
-        MPI_Recv( &message, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
     }
-    // Broadcast Input
+
+    // Broadcast Input (Integers)
     MPI_Bcast(buffInt, 3, MPI_INT, 0, MPI_COMM_WORLD);
     n = buffInt[0];
     m = buffInt[1];
     maxIterationCount = buffInt[2];
     printf("-> %d, %d, %d\n", n, m, maxIterationCount);
 
+    // Broadcast Input (Doubles)
     MPI_Bcast(buffDouble, 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     alpha = buffDouble[0];
     relax = buffDouble[1];
     maxAcceptableError=buffDouble[2];
     printf("-> %g, %g, %g\n", alpha, relax, maxAcceptableError);
 
-    // Get Dimensions of Grid and create custom column and row datatypes
+    // Get Dimensions of Grid 
     getSizes(n, m, comm_sz, &sizeX, &sizeY, &rowSize, &columnSize);
+
+    //Custom Column Datatype
     MPI_Type_vector(columnSize, 1, columnSize, MPI_DOUBLE, &column_type);
     MPI_Type_commit(&column_type);
 
+    //Custom Row Datatype
     MPI_Type_contiguous(rowSize, MPI_DOUBLE, &row_type);
     MPI_Type_commit(&row_type);
 
-
-    // Check Neighbors
+    // Calculate Neighbors
     myNeighbors = getNeighbors(cart_comm,my_rank, sizeX, sizeY);
-    printf("My rank is: %d  My message is: %d My Up is %d My Down is %d My Left is %d My Right is %d\n",my_rank,message,myNeighbors[0],myNeighbors[1],myNeighbors[3],myNeighbors[2]);
 
-    // Calculate Deltas
-    deltaX = (xRight-xLeft)/(n-1);
-    deltaY = (yUp-yBottom)/(m-1);
-
-    
+    // Calculate Deltas and X/Y coordinates of submatrix
+    calculateDims(rowSize, columnSize, cords, &xLeft, &xRight, &yBottom, &yUp, &deltaX, &deltaY);
 
 
     t2 = MPI_Wtime();
     MPI_Finalize();
     //######### END OF MPI #########
-    
-
     
     diff = clock() - start;
     int msec = diff * 1000 / CLOCKS_PER_SEC;
