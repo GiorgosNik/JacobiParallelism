@@ -163,6 +163,10 @@ int main(int argc, char **argv){
     MPI_Status status;
     MPI_Datatype column_type;
     MPI_Datatype row_type;
+    MPI_Request requestUp;
+    MPI_Request requestDown;
+    MPI_Request requestLeft;
+    MPI_Request requestRight;
     int dim[] = {2,2};
     int period[] = {0, 0};
     int reorder = 1;
@@ -277,7 +281,21 @@ int main(int argc, char **argv){
     // Start Jacobi Calculations
     while (iterationCount < maxIterationCount && error > maxAcceptableError)
     {   
-        // TODO Send and Receive the rows and collumns to and from Neighbors 	
+        if (myNeighbors[0] != -1){
+            MPI_Isend(&u_old[1][0], 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &requestUp);
+        }
+        if (myNeighbors[1] != -1){
+            MPI_Isend(&u_old[columnSize-1][0], 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &requestDown);
+        }if (myNeighbors[2] != -1){
+            MPI_Isend(&u_old[0][rowSize-1], 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &requestRight);
+        }if (myNeighbors[3] != -1){
+            MPI_Isend(&u_old[0][1]], 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &requestLeft);
+        }
+
+        MPI_Wait(&requestUp, MPI_STATUS_IGNORE);
+        MPI_Wait(&requestDown, MPI_STATUS_IGNORE);
+        MPI_Wait(&requestRight, MPI_STATUS_IGNORE);
+        MPI_Wait(&requestLeft, MPI_STATUS_IGNORE);
         error = one_jacobi_iteration(xLeft, yBottom, rowSize+2, columnSize+2,u_old, u,deltaX, deltaY, alpha, relax);
         iterationCount++;
         tmp = u_old;
