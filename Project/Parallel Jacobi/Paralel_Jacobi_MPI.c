@@ -82,37 +82,37 @@ static inline int * getNeighbours(MPI_Comm cart_comm,int myRank,int side){
 
     //Get my Neighbours in the grid
     if(cords[0]>0){
-            neighbourCords[0]=cords[0]-1;
-            neighbourCords[1]=cords[1];
+            neighbourCords[0] = cords[0]-1;
+            neighbourCords[1] = cords[1];
             MPI_Cart_rank(cart_comm, neighbourCords, &upNeighbour);
-            Neighbours[0]=upNeighbour;
+            Neighbours[0] = upNeighbour;
     }else{
-        Neighbours[0]=-1;
+        Neighbours[0] =- 1;
     }
         
     if(cords[0]<side-1){
-        neighbourCords[0]=cords[0]+1;
-        neighbourCords[1]=cords[1];
+        neighbourCords[0] = cords[0]+1;
+        neighbourCords[1] = cords[1];
         MPI_Cart_rank(cart_comm, neighbourCords, &downNeighbour);
-         Neighbours[1]=downNeighbour;
+         Neighbours[1] = downNeighbour;
     }else{
         Neighbours[1]=-1;
     }
     if(cords[1]<side-1){
-        neighbourCords[0]=cords[0];
-        neighbourCords[1]=cords[1]+1;
+        neighbourCords[0] = cords[0];
+        neighbourCords[1] = cords[1]+1;
         MPI_Cart_rank(cart_comm, neighbourCords, &rightNeighbour);
-        Neighbours[2]=rightNeighbour;
+        Neighbours[2] = rightNeighbour;
     }else{
-        Neighbours[2]=-1;
+        Neighbours[2] =- 1;
     }
     if(cords[1]>0){
-        neighbourCords[0]=cords[0];
-        neighbourCords[1]=cords[1]-1;
+        neighbourCords[0] = cords[0];
+        neighbourCords[1] = cords[1]-1;
         MPI_Cart_rank(cart_comm, neighbourCords, &leftNeighbour);
-        Neighbours[3]=leftNeighbour;
+        Neighbours[3] = leftNeighbour;
     }else{
-        Neighbours[3]=-1;
+        Neighbours[3] =- 1;
     }
     return Neighbours;
 }
@@ -131,15 +131,25 @@ static inline int setup(double *u, double * u_old,int n,int m,int allocCount){
 
 static inline int getSizes(int n, int m, int procs, int* sizeX, int* sizeY, int* rowSize, int* columnSize){
     int size;
-    if(sqrt(procs)==ceil(sqrt(procs))){
-        *sizeX=(int)sqrt(procs);
-        *sizeY=*sizeX;
+    if(sqrt(procs) == ceil(sqrt(procs))){
+        *sizeX = (int)sqrt(procs);
+        *sizeY =* sizeX;
     }else{
-        *sizeX=8;
-        *sizeY=10;
+        *sizeX = 8;
+        *sizeY = 10;
     }
-    *rowSize=(int)(n/ *sizeX);
-    *columnSize=(int)(m/ *sizeY)%1;
+    *rowSize = (int)(n/ *sizeX);
+    *columnSize = (int)(m/ *sizeY)%1;
+    return 0;
+}
+
+static inline int calculateDims(int rowSize, int columnSize, int* cords, double* startX, double * endX, double* startY, double* endY){
+    double strideX = 2/rowSize;
+    double strideY = 2/columnSize;
+    *startX = -1+strideX*cords[0];
+    *startY = -1+strideY*cords[-1];
+    *endX = *startX+strideX;
+    *endY = *startY+strideY;
     return 0;
 }
 
@@ -199,24 +209,24 @@ int main(int argc, char **argv){
     MPI_Cart_coords(cart_comm,my_rank,2,cords);
 
     //Get the size of the square
-    side=sqrt(comm_sz);
+    side = sqrt(comm_sz);
     
     
 
     MPI_Cart_coords(cart_comm,my_rank,2,cords);
-    if(my_rank==0){
+    if(my_rank == 0){
         scanf("%d,%d", &n, &m);
         scanf("%lf", &alpha);
         scanf("%lf", &relax);
         scanf("%lf", &maxAcceptableError);
         scanf("%d", &maxIterationCount);
         printf("-> %d, %d, %g, %g, %g, %d\n", n, m, alpha, relax, maxAcceptableError, maxIterationCount);
-        buffInt[0]=n;
-        buffInt[1]=m;
+        buffInt[0] = n;
+        buffInt[1] = m;
         buffInt[2]=maxIterationCount;
-        buffDouble[0]=alpha;
-        buffDouble[1]=relax;
-        buffDouble[2]=maxAcceptableError;
+        buffDouble[0] = alpha;
+        buffDouble[1] = relax;
+        buffDouble[2] = maxAcceptableError;
 
         if (setup(u,u_old,n,m,allocCount)==1){
             exit(1);
@@ -225,25 +235,26 @@ int main(int argc, char **argv){
             message=receiver_id*2;
             MPI_Send( &message, 1 , MPI_INT,receiver_id, send_data_tag, MPI_COMM_WORLD);
         }
+        
         message = 0;
-    }else if(my_rank!=0){
+    }else if(my_rank != 0){
         MPI_Recv( &message, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
     }
     // Broadcast Input
     MPI_Bcast(buffInt, 3, MPI_INT, 0, MPI_COMM_WORLD);
-    n=buffInt[0];
-    m=buffInt[1];
-    maxIterationCount=buffInt[2];
+    n = buffInt[0];
+    m = buffInt[1];
+    maxIterationCount = buffInt[2];
     printf("-> %d, %d, %d\n", n, m, maxIterationCount);
 
     MPI_Bcast(buffDouble, 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    alpha=buffDouble[0];
-    relax=buffDouble[1];
+    alpha = buffDouble[0];
+    relax = buffDouble[1];
     maxAcceptableError=buffDouble[2];
     printf("-> %g, %g, %g\n", alpha, relax, maxAcceptableError);
 
     // Check Neighbours
-    myNeighbours=getNeighbours(cart_comm,my_rank,side);
+    myNeighbours = getNeighbours(cart_comm,my_rank,side);
     printf("My rank is: %d  My message is: %d My Up is %d My Down is %d My Left is %d My Right is %d\n",my_rank,message,myNeighbours[0],myNeighbours[1],myNeighbours[3],myNeighbours[2]);
 
     // Calculate Deltas
