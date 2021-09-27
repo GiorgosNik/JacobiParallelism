@@ -247,11 +247,11 @@ int main(int argc, char **argv){
     getSizes(n, m, comm_sz, &sizeX, &sizeY, &rowSize, &columnSize);
 
     //Custom Column Datatype
-    MPI_Type_vector(columnSize, 1, columnSize, MPI_DOUBLE, &column_type);
+    MPI_Type_vector(columnSize+2, 1, columnSize+2, MPI_DOUBLE, &column_type);
     MPI_Type_commit(&column_type);
 
     //Custom Row Datatype
-    MPI_Type_contiguous(rowSize, MPI_DOUBLE, &row_type);
+    MPI_Type_contiguous(rowSize+2, MPI_DOUBLE, &row_type);
     MPI_Type_commit(&row_type);
 
     // Calculate Neighbors
@@ -260,6 +260,30 @@ int main(int argc, char **argv){
     // Calculate Deltas and X/Y coordinates of submatrix
     calculateDims(rowSize, columnSize, cords, &xLeft, &xRight, &yBottom, &yUp, &deltaX, &deltaY);
 
+    // Create the two sub-matrixes
+    allocCount = (rowSize+2)*(columnSize+2);
+
+    // Those two calls also zero the boundary elements
+    u = 	(double*)calloc(allocCount, sizeof(double)); //reverse order
+    u_old = (double*)calloc(allocCount, sizeof(double));
+
+    // Check if the two matrixes were created correctly   
+    if (u == NULL || u_old == NULL)
+    {
+        printf("Not enough memory for two %ix%i matrices\n", rowSize+2, columnSize+2);
+        exit(1);
+    }
+
+    // Start Jacobi Calculations
+    while (iterationCount < maxIterationCount && error > maxAcceptableError)
+    {   
+        // TODO Send and Receive the rows and collumns to and from Neighbors 	
+        error = one_jacobi_iteration(xLeft, yBottom, rowSize+2, columnSize+2,u_old, u,deltaX, deltaY, alpha, relax);
+        iterationCount++;
+        tmp = u_old;
+        u_old = u;
+        u = tmp;
+    }
 
     t2 = MPI_Wtime();
     MPI_Finalize();
