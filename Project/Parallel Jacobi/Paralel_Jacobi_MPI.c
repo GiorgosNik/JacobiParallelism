@@ -130,31 +130,36 @@ static inline int setup(double *u, double * u_old,int n,int m,int allocCount){
 }
 
 static inline int getSizes(int n, int m, int procs, int* sizeX, int* sizeY, int* rowSize, int* columnSize){
-    int size;
     if(sqrt(procs) == ceil(sqrt(procs))){
         *sizeX = (int)sqrt(procs);
-        *sizeY =* sizeX;
+        *sizeY = *sizeX;
     }else{
         *sizeX = 8;
         *sizeY = 10;
     }
     *rowSize = (int)(n/ *sizeX);
-    *columnSize = (int)(m/ *sizeY)%1;
+    *columnSize = (int)(m/ *sizeY);
     return 0;
 }
 
-static inline int calculateDims(int rowSize, int columnSize, int* cords, double* xLeft, double * xRight, double* yLeft, double* yRight, double* deltaX, double* deltaY){
-    *deltaX = 2/rowSize - 1;
-    *deltaY = 2/columnSize - 1;
-    *xLeft = -1 + (*deltaX) * cords[0];
-    *yLeft = -1+(*deltaY)*cords[-1];
-    *xRight = *xLeft+(*deltaX);
-    *yRight = *yLeft+(*deltaY);
+static inline int calculateDims(int sizeX, int sizeY, int rowSize, int columnSize ,int* cords, double* xLeft, double * xRight, double* yLeft, double* yRight, double* deltaX, double* deltaY){
+    *deltaX = (double)2/(double)(rowSize);
+    //printf("%d %d \n",rowSize,columnSize);
+    *deltaY =(double)2/(double)columnSize;
+    //printf("deltaX: %lf deltaY: %f \n",*deltaX ,*deltaY);
+    *xLeft = -1 + (*deltaX)*(cords[0]*rowSize);
+    *yLeft = -1 +(*deltaY)* (cords[1]*columnSize);
+    *xRight = *xLeft+(*deltaX)*rowSize;
+    
+    *yRight = *yLeft+(*deltaY)*columnSize;
+    
+    printf("xLeft %f xRight %f  yLeft %f yRight %f \n",*xLeft,*xRight,*yLeft,*yRight);
     return 0;
 }
 
 int main(int argc, char **argv){
 
+    printf("%lf\n",(double)2/(double)420);
     // Setup for MPI
     int source, prov; 
     int control = 0;
@@ -163,10 +168,10 @@ int main(int argc, char **argv){
     MPI_Status status;
     MPI_Datatype column_type;
     MPI_Datatype row_type;
-    MPI_Request requestUp;
-    MPI_Request requestDown;
-    MPI_Request requestLeft;
-    MPI_Request requestRight;
+    MPI_Request requestUpSend,requestUpGet;
+    MPI_Request requestDownSend,requestDownGet;
+    MPI_Request requestLeftSend,requestLeftGet;
+    MPI_Request requestRightSend,requestRightGet;
     int dim[] = {2,2};
     int period[] = {0, 0};
     int reorder = 1;
@@ -179,6 +184,8 @@ int main(int argc, char **argv){
     int sizeY;
     int rowSize;
     int columnSize;
+    int* received;
+
 
     // General Setup
     int n, m, maxIterationCount,allocCount,iterationCount;
@@ -262,8 +269,8 @@ int main(int argc, char **argv){
     myNeighbors = getNeighbors(cart_comm,my_rank, sizeX, sizeY);
 
     // Calculate Deltas and X/Y coordinates of submatrix
-    calculateDims(rowSize, columnSize, cords, &xLeft, &xRight, &yBottom, &yUp, &deltaX, &deltaY);
-
+    calculateDims(sizeX, sizeY,rowSize, columnSize, cords, &xLeft, &xRight, &yBottom, &yUp, &deltaX, &deltaY);
+    
     // Create the two sub-matrixes
     allocCount = (rowSize+2)*(columnSize+2);
 
@@ -282,25 +289,57 @@ int main(int argc, char **argv){
     while (iterationCount < maxIterationCount && error > maxAcceptableError)
     {   
         if (myNeighbors[0] != -1){
-            MPI_Isend(&u_old[1][0], 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &requestUp);
+            MPI_Isend(&u_old[rowSize], 1, row_type,myNeighbors[0] , 0, MPI_COMM_WORLD, &requestUpSend);
         }
         if (myNeighbors[1] != -1){
-            MPI_Isend(&u_old[columnSize-1][0], 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &requestDown);
-        }if (myNeighbors[2] != -1){
-            MPI_Isend(&u_old[0][rowSize-1], 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &requestRight);
-        }if (myNeighbors[3] != -1){
-            MPI_Isend(&u_old[0][1]], 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &requestLeft);
+            MPI_Isend(&u_old[columnSize*rowSize], 1, row_type, myNeighbors[1], 0, MPI_COMM_WORLD, &requestDownSend);
         }
-
-        MPI_Wait(&requestUp, MPI_STATUS_IGNORE);
-        MPI_Wait(&requestDown, MPI_STATUS_IGNORE);
-        MPI_Wait(&requestRight, MPI_STATUS_IGNORE);
-        MPI_Wait(&requestLeft, MPI_STATUS_IGNORE);
+        if (myNeighbors[2] != -1){
+            MPI_Isend(&u_old[rowSize], 1, column_type, myNeighbors[2], 0, MPI_COMM_WORLD, &requestRightSend);
+        }
+        if (myNeighbors[3] != -1){
+            MPI_Isend(&u_old[1], 1, column_type, myNeighbors[3], 0, MPI_COMM_WORLD, &requestLeftSend);
+        }
+        
+        if (myNeighbors[0] != -1){
+            MPI_Irecv(&received, 1, row_type, myNeighbors[0], 0, MPI_COMM_WORLD, &requestUpGet);
+        }
+        if (myNeighbors[1] != -1){
+            MPI_Irecv(&received, 1, row_type, myNeighbors[1], 0, MPI_COMM_WORLD, &requestDownGet);
+        }
+        if (myNeighbors[2] != -1){
+            MPI_Irecv(&received, 1, column_type, myNeighbors[2], 0, MPI_COMM_WORLD, &requestRightGet);
+        }
+        if (myNeighbors[3] != -1){
+            MPI_Irecv(&received, 1, column_type, myNeighbors[3], 0, MPI_COMM_WORLD, &requestLeftGet);
+        }
+        
+        if (myNeighbors[0] != -1){
+            MPI_Wait(&requestUpSend, MPI_STATUS_IGNORE);
+            MPI_Wait(&requestUpGet, MPI_STATUS_IGNORE);
+        }
+        if (myNeighbors[1] != -1){
+            MPI_Wait(&requestDownSend, MPI_STATUS_IGNORE);
+            MPI_Wait(&requestDownGet, MPI_STATUS_IGNORE);
+        }
+        if (myNeighbors[2] != -1){
+            MPI_Wait(&requestRightSend, MPI_STATUS_IGNORE);
+            MPI_Wait(&requestRightGet, MPI_STATUS_IGNORE);
+        }
+        if (myNeighbors[3] != -1){
+            MPI_Wait(&requestLeftSend, MPI_STATUS_IGNORE);
+            MPI_Wait(&requestLeftGet, MPI_STATUS_IGNORE);
+        }
+        printf("%f\n",yBottom);
+        //printf("ITER: %d for PROC: %d \n",iterationCount,my_rank);
         error = one_jacobi_iteration(xLeft, yBottom, rowSize+2, columnSize+2,u_old, u,deltaX, deltaY, alpha, relax);
+        /*printf("%f %f %d %d %f %f %f %f \n",xLeft, yBottom,u_old, u,deltaX, deltaY, alpha, relax);*/
+        
         iterationCount++;
         tmp = u_old;
         u_old = u;
         u = tmp;
+        //printf("ITER: %d for PROC: %d MAX ITER: %d ERROR: %f MAX ERROR: %f\n",iterationCount,my_rank,maxIterationCount,error,maxAcceptableError);
     }
 
     t2 = MPI_Wtime();
