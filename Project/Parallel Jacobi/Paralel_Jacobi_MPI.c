@@ -129,7 +129,7 @@ static inline int setup(double *u, double * u_old,int n,int m,int allocCount){
         return(0);
 }
 
-static inline int getSizes(int n, int m, int procs, int* sizeX, int* sizeY, int* rowSize, int* columnSize){
+static inline int getSizes(int n, int m, int procs, int* sizeX, int* sizeY, int* rowPoints, int* columnPoints){
     if(sqrt(procs) == ceil(sqrt(procs))){
         *sizeX = (int)sqrt(procs);
         *sizeY = *sizeX;
@@ -137,23 +137,21 @@ static inline int getSizes(int n, int m, int procs, int* sizeX, int* sizeY, int*
         *sizeX = 8;
         *sizeY = 10;
     }
-    *rowSize = (int)(n/ *sizeX);
-    *columnSize = (int)(m/ *sizeY);
+    *rowPoints = (int)(n/ *sizeX);
+    *columnPoints = (int)(m/ *sizeY);
+    //printf("N: %d M:%d Procs %d SizeX: %d SizeY: %d rowPoints: %d columnPoints: %d\n", n,  m,  procs, * sizeX, * sizeY, * rowPoints, * columnPoints);
     return 0;
 }
 
-static inline int calculateDims(int sizeX, int sizeY, int rowSize, int columnSize ,int* cords, double* xLeft, double * xRight, double* yLeft, double* yRight, double* deltaX, double* deltaY){
-    *deltaX = (double)2/(double)(rowSize);
-    //printf("%d %d \n",rowSize,columnSize);
-    *deltaY =(double)2/(double)columnSize;
-    //printf("deltaX: %lf deltaY: %f \n",*deltaX ,*deltaY);
-    *xLeft = -1 + (*deltaX)*(cords[0]*rowSize);
-    *yLeft = -1 +(*deltaY)* (cords[1]*columnSize);
-    *xRight = *xLeft+(*deltaX)*rowSize;
+static inline int calculateDims(int n, int m, int sizeX, int sizeY, int rowPoints, int columnPoints ,int* cords, double* xLeft, double * xRight, double* yDown, double* yUp, double* deltaX, double* deltaY){
+    *deltaX = (double)2/(double)(n-1);
+    *deltaY =(double)2/(double)(m-1);
+    *xLeft = -1 + (*deltaX)*(cords[0]*rowPoints);
+    *yDown = -1 +(*deltaY)* (cords[1]*columnPoints);
+
+    *xRight = *xLeft+(*deltaX)*rowPoints;
+    *yUp = *yDown+(*deltaY)*columnPoints;
     
-    *yRight = *yLeft+(*deltaY)*columnSize;
-    
-    printf("xLeft %f xRight %f  yLeft %f yRight %f \n",*xLeft,*xRight,*yLeft,*yRight);
     return 0;
 }
 
@@ -182,9 +180,9 @@ int main(int argc, char **argv){
     int upNeighbor,downNeighbor,leftNeighour,rightNeighbor;
     int sizeX;
     int sizeY;
-    int rowSize;
-    int columnSize;
-    int* received;
+    int rowPoints;
+    int columnPoints;
+    double* received;
 
 
     // General Setup
@@ -255,24 +253,24 @@ int main(int argc, char **argv){
     printf("-> %g, %g, %g\n", alpha, relax, maxAcceptableError);
 
     // Get Dimensions of Grid 
-    getSizes(n, m, comm_sz, &sizeX, &sizeY, &rowSize, &columnSize);
+    getSizes(n, m, comm_sz, &sizeX, &sizeY, &rowPoints, &columnPoints);
 
     //Custom Column Datatype
-    MPI_Type_vector(columnSize+2, 1, columnSize+2, MPI_DOUBLE, &column_type);
+    MPI_Type_vector(columnPoints+2, 1, columnPoints+2, MPI_DOUBLE, &column_type);
     MPI_Type_commit(&column_type);
 
     //Custom Row Datatype
-    MPI_Type_contiguous(rowSize+2, MPI_DOUBLE, &row_type);
+    MPI_Type_contiguous(rowPoints+2, MPI_DOUBLE, &row_type);
     MPI_Type_commit(&row_type);
 
     // Calculate Neighbors
     myNeighbors = getNeighbors(cart_comm,my_rank, sizeX, sizeY);
 
     // Calculate Deltas and X/Y coordinates of submatrix
-    calculateDims(sizeX, sizeY,rowSize, columnSize, cords, &xLeft, &xRight, &yBottom, &yUp, &deltaX, &deltaY);
+    calculateDims(n ,m, sizeX, sizeY,rowPoints, columnPoints, cords, &xLeft, &xRight, &yBottom, &yUp, &deltaX, &deltaY);
     
     // Create the two sub-matrixes
-    allocCount = (rowSize+2)*(columnSize+2);
+    allocCount = (rowPoints+2)*(columnPoints+2);
 
     // Those two calls also zero the boundary elements
     u = 	(double*)calloc(allocCount, sizeof(double)); //reverse order
@@ -281,24 +279,27 @@ int main(int argc, char **argv){
     // Check if the two matrixes were created correctly   
     if (u == NULL || u_old == NULL)
     {
-        printf("Not enough memory for two %ix%i matrices\n", rowSize+2, columnSize+2);
+        printf("Not enough memory for two %ix%i matrices\n", rowPoints+2, columnPoints+2);
         exit(1);
     }
 
     // Start Jacobi Calculations
     while (iterationCount < maxIterationCount && error > maxAcceptableError)
     {   
+        
         if (myNeighbors[0] != -1){
-            MPI_Isend(&u_old[rowSize], 1, row_type,myNeighbors[0] , 0, MPI_COMM_WORLD, &requestUpSend);
+            MPI_Isend(&u_old[rowPoints], 1, row_type,myNeighbors[0] , 0, MPI_COMM_WORLD, &requestUpSend);
         }
         if (myNeighbors[1] != -1){
-            MPI_Isend(&u_old[columnSize*rowSize], 1, row_type, myNeighbors[1], 0, MPI_COMM_WORLD, &requestDownSend);
+            MPI_Isend(&u_old[columnPoints*rowPoints], 1, row_type, myNeighbors[1], 0, MPI_COMM_WORLD, &requestDownSend);
         }
         if (myNeighbors[2] != -1){
-            MPI_Isend(&u_old[rowSize], 1, column_type, myNeighbors[2], 0, MPI_COMM_WORLD, &requestRightSend);
+            MPI_Isend(&u_old[rowPoints], 1, column_type, myNeighbors[2], 0, MPI_COMM_WORLD, &requestRightSend);
+            printf("I am %d and I sent to %d (Right) \n",my_rank,myNeighbors[2]);
         }
         if (myNeighbors[3] != -1){
             MPI_Isend(&u_old[1], 1, column_type, myNeighbors[3], 0, MPI_COMM_WORLD, &requestLeftSend);
+            printf("I am %d and I sent to %d (Left) \n",my_rank,myNeighbors[3]);
         }
         
         if (myNeighbors[0] != -1){
@@ -309,11 +310,12 @@ int main(int argc, char **argv){
         }
         if (myNeighbors[2] != -1){
             MPI_Irecv(&received, 1, column_type, myNeighbors[2], 0, MPI_COMM_WORLD, &requestRightGet);
+            printf("I am %d and I received from %d (Right) \n",my_rank,myNeighbors[2]);
         }
         if (myNeighbors[3] != -1){
             MPI_Irecv(&received, 1, column_type, myNeighbors[3], 0, MPI_COMM_WORLD, &requestLeftGet);
+            printf("I am %d and I received from %d (Left) \n",my_rank,myNeighbors[2]);
         }
-        
         if (myNeighbors[0] != -1){
             MPI_Wait(&requestUpSend, MPI_STATUS_IGNORE);
             MPI_Wait(&requestUpGet, MPI_STATUS_IGNORE);
@@ -322,17 +324,18 @@ int main(int argc, char **argv){
             MPI_Wait(&requestDownSend, MPI_STATUS_IGNORE);
             MPI_Wait(&requestDownGet, MPI_STATUS_IGNORE);
         }
+        printf("IN\n");
         if (myNeighbors[2] != -1){
             MPI_Wait(&requestRightSend, MPI_STATUS_IGNORE);
             MPI_Wait(&requestRightGet, MPI_STATUS_IGNORE);
         }
+        printf("ITER: %d for PROC: %d \n",iterationCount,my_rank);
         if (myNeighbors[3] != -1){
             MPI_Wait(&requestLeftSend, MPI_STATUS_IGNORE);
             MPI_Wait(&requestLeftGet, MPI_STATUS_IGNORE);
         }
-        printf("%f\n",yBottom);
-        //printf("ITER: %d for PROC: %d \n",iterationCount,my_rank);
-        error = one_jacobi_iteration(xLeft, yBottom, rowSize+2, columnSize+2,u_old, u,deltaX, deltaY, alpha, relax);
+        
+        error = one_jacobi_iteration(xLeft, yBottom, rowPoints+2, columnPoints+2,u_old, u,deltaX, deltaY, alpha, relax);
         /*printf("%f %f %d %d %f %f %f %f \n",xLeft, yBottom,u_old, u,deltaX, deltaY, alpha, relax);*/
         
         iterationCount++;
