@@ -303,17 +303,17 @@ int main(int argc, char **argv){
         }
         
         if (myNeighbors[0] != -1){
-            MPI_Irecv(&received, 1, row_type, myNeighbors[0], 0, MPI_COMM_WORLD, &requestUpGet);
+            MPI_Irecv(&received, rowPoints+2, row_type, myNeighbors[0], 0, MPI_COMM_WORLD, &requestUpGet);
         }
         if (myNeighbors[1] != -1){
-            MPI_Irecv(&received, 1, row_type, myNeighbors[1], 0, MPI_COMM_WORLD, &requestDownGet);
+            MPI_Irecv(&received, rowPoints+2, row_type, myNeighbors[1], 0, MPI_COMM_WORLD, &requestDownGet);
         }
         if (myNeighbors[2] != -1){
-            MPI_Irecv(&received, 1, column_type, myNeighbors[2], 0, MPI_COMM_WORLD, &requestRightGet);
+            MPI_Irecv(&received, columnPoints+2, MPI_DOUBLE, myNeighbors[2], 0, MPI_COMM_WORLD, &requestRightGet);
             printf("I am %d and I received from %d (Right) \n",my_rank,myNeighbors[2]);
         }
         if (myNeighbors[3] != -1){
-            MPI_Irecv(&received, 1, column_type, myNeighbors[3], 0, MPI_COMM_WORLD, &requestLeftGet);
+            MPI_Irecv(&received, columnPoints+2, MPI_DOUBLE, myNeighbors[3], 0, MPI_COMM_WORLD, &requestLeftGet);
             printf("I am %d and I received from %d (Left) \n",my_rank,myNeighbors[2]);
         }
         if (myNeighbors[0] != -1){
@@ -336,13 +336,12 @@ int main(int argc, char **argv){
         }
         
         error = one_jacobi_iteration(xLeft, yBottom, rowPoints+2, columnPoints+2,u_old, u,deltaX, deltaY, alpha, relax);
-        /*printf("%f %f %d %d %f %f %f %f \n",xLeft, yBottom,u_old, u,deltaX, deltaY, alpha, relax);*/
+        printf("ERROR: %f \n",error);
         
         iterationCount++;
         tmp = u_old;
         u_old = u;
         u = tmp;
-        //printf("ITER: %d for PROC: %d MAX ITER: %d ERROR: %f MAX ERROR: %f\n",iterationCount,my_rank,maxIterationCount,error,maxAcceptableError);
     }
 
     t2 = MPI_Wtime();
