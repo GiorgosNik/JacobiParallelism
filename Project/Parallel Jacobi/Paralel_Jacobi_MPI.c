@@ -157,7 +157,6 @@ static inline int calculateDims(int n, int m, int sizeX, int sizeY, int rowPoint
 
 int main(int argc, char **argv){
 
-    printf("%lf\n",(double)2/(double)420);
     // Setup for MPI
     int source, prov; 
     int control = 0;
@@ -170,7 +169,7 @@ int main(int argc, char **argv){
     MPI_Request requestDownSend,requestDownGet;
     MPI_Request requestLeftSend,requestLeftGet;
     MPI_Request requestRightSend,requestRightGet;
-    int dim[] = {2,2};
+    int dim[] = {3,3};
     int period[] = {0, 0};
     int reorder = 1;
     int *myNeighbors;
@@ -182,7 +181,7 @@ int main(int argc, char **argv){
     int sizeY;
     int rowPoints;
     int columnPoints;
-    double* received;
+    double* receivedLeft, *receivedRight, *receivedUp, *receivedDown;
 
 
     // General Setup
@@ -216,7 +215,7 @@ int main(int argc, char **argv){
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
     MPI_Cart_coords(cart_comm,my_rank,2,cords);
-
+    printf("IN\n");
     
     MPI_Cart_coords(cart_comm,my_rank,2,cords);
     if(my_rank == 0){
@@ -225,7 +224,7 @@ int main(int argc, char **argv){
         scanf("%lf", &relax);
         scanf("%lf", &maxAcceptableError);
         scanf("%d", &maxIterationCount);
-        printf("-> %d, %d, %g, %g, %g, %d\n", n, m, alpha, relax, maxAcceptableError, maxIterationCount);
+        //printf("-> %d, %d, %g, %g, %g, %d\n", n, m, alpha, relax, maxAcceptableError, maxIterationCount);
         buffInt[0] = n;
         buffInt[1] = m;
         buffInt[2]=maxIterationCount;
@@ -243,14 +242,14 @@ int main(int argc, char **argv){
     n = buffInt[0];
     m = buffInt[1];
     maxIterationCount = buffInt[2];
-    printf("-> %d, %d, %d\n", n, m, maxIterationCount);
+    //printf("-> %d, %d, %d\n", n, m, maxIterationCount);
 
     // Broadcast Input (Doubles)
     MPI_Bcast(buffDouble, 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     alpha = buffDouble[0];
     relax = buffDouble[1];
     maxAcceptableError=buffDouble[2];
-    printf("-> %g, %g, %g\n", alpha, relax, maxAcceptableError);
+    //printf("-> %g, %g, %g\n", alpha, relax, maxAcceptableError);
 
     // Get Dimensions of Grid 
     getSizes(n, m, comm_sz, &sizeX, &sizeY, &rowPoints, &columnPoints);
@@ -283,10 +282,27 @@ int main(int argc, char **argv){
         exit(1);
     }
 
+
+    printf("RANK : %d UP: %d DOWN: %d LEFT: %d RIGHT: %d\n",my_rank,myNeighbors[0],myNeighbors[1],myNeighbors[3],myNeighbors[2]);
+
+    // Create the Receive Buffers
+    if (myNeighbors[0] != -1){
+        receivedUp=malloc(sizeof(double)*(rowPoints+2));
+    }
+    if (myNeighbors[1] != -1){
+        receivedDown=malloc(sizeof(double)*(rowPoints+2));    
+    }
+    if (myNeighbors[2] != -1){
+        receivedRight=malloc(sizeof(double)*(columnPoints+2));   
+    }
+    if (myNeighbors[3] != -1){
+        receivedLeft=malloc(sizeof(double)*(columnPoints+2));      
+    }
+
     // Start Jacobi Calculations
     while (iterationCount < maxIterationCount && error > maxAcceptableError)
     {   
-        
+        // Sending Operations
         if (myNeighbors[0] != -1){
             MPI_Isend(&u_old[rowPoints], 1, row_type,myNeighbors[0] , 0, MPI_COMM_WORLD, &requestUpSend);
         }
@@ -295,49 +311,63 @@ int main(int argc, char **argv){
         }
         if (myNeighbors[2] != -1){
             MPI_Isend(&u_old[rowPoints], 1, column_type, myNeighbors[2], 0, MPI_COMM_WORLD, &requestRightSend);
-            printf("I am %d and I sent to %d (Right) \n",my_rank,myNeighbors[2]);
         }
         if (myNeighbors[3] != -1){
             MPI_Isend(&u_old[1], 1, column_type, myNeighbors[3], 0, MPI_COMM_WORLD, &requestLeftSend);
-            printf("I am %d and I sent to %d (Left) \n",my_rank,myNeighbors[3]);
         }
         
+        printf("RANK : %d\n",my_rank);
+        // Receive Operations
         if (myNeighbors[0] != -1){
-            MPI_Irecv(&received, rowPoints+2, row_type, myNeighbors[0], 0, MPI_COMM_WORLD, &requestUpGet);
+            MPI_Irecv(receivedUp, rowPoints+2, row_type, myNeighbors[0], 0, MPI_COMM_WORLD, &requestUpGet);
         }
         if (myNeighbors[1] != -1){
-            MPI_Irecv(&received, rowPoints+2, row_type, myNeighbors[1], 0, MPI_COMM_WORLD, &requestDownGet);
+            MPI_Irecv(receivedDown, rowPoints+2, row_type, myNeighbors[1], 0, MPI_COMM_WORLD, &requestDownGet);
         }
         if (myNeighbors[2] != -1){
-            MPI_Irecv(&received, columnPoints+2, MPI_DOUBLE, myNeighbors[2], 0, MPI_COMM_WORLD, &requestRightGet);
+            MPI_Irecv(receivedRight, columnPoints+2, MPI_DOUBLE, myNeighbors[2], 0, MPI_COMM_WORLD, &requestRightGet);
             printf("I am %d and I received from %d (Right) \n",my_rank,myNeighbors[2]);
         }
         if (myNeighbors[3] != -1){
-            MPI_Irecv(&received, columnPoints+2, MPI_DOUBLE, myNeighbors[3], 0, MPI_COMM_WORLD, &requestLeftGet);
+            MPI_Irecv(receivedLeft, columnPoints+2, MPI_DOUBLE, myNeighbors[3], 0, MPI_COMM_WORLD, &requestLeftGet);
             printf("I am %d and I received from %d (Left) \n",my_rank,myNeighbors[2]);
         }
+
+
+        // Wait for Sending and Receiving to Complete
         if (myNeighbors[0] != -1){
             MPI_Wait(&requestUpSend, MPI_STATUS_IGNORE);
             MPI_Wait(&requestUpGet, MPI_STATUS_IGNORE);
+            for(int i = 1;i<=columnPoints;i++){
+                receivedUp[i]=0;
+                u_old[i]=receivedUp[i];
+            }
         }
         if (myNeighbors[1] != -1){
             MPI_Wait(&requestDownSend, MPI_STATUS_IGNORE);
             MPI_Wait(&requestDownGet, MPI_STATUS_IGNORE);
+            for(int i = 1;i<=columnPoints;i++){
+                u_old[(columnPoints+1)*(rowPoints+2)+i]=receivedDown[i];
+            }
         }
-        printf("IN\n");
         if (myNeighbors[2] != -1){
             MPI_Wait(&requestRightSend, MPI_STATUS_IGNORE);
             MPI_Wait(&requestRightGet, MPI_STATUS_IGNORE);
+            for(int i = 1;i<=columnPoints;i++){
+                u_old[(rowPoints+2)*i+rowPoints+1]=receivedRight[i];
+            }
         }
-        printf("ITER: %d for PROC: %d \n",iterationCount,my_rank);
         if (myNeighbors[3] != -1){
             MPI_Wait(&requestLeftSend, MPI_STATUS_IGNORE);
             MPI_Wait(&requestLeftGet, MPI_STATUS_IGNORE);
+            for(int i = 1;i<=columnPoints;i++){
+                u_old[(rowPoints+2)*i]=receivedLeft[i];
+            }
         }
         
         error = one_jacobi_iteration(xLeft, yBottom, rowPoints+2, columnPoints+2,u_old, u,deltaX, deltaY, alpha, relax);
-        printf("ERROR: %f \n",error);
-        
+        //printf("ERROR: %g \n",error);
+        printf("ELEMENT 1: %g\n",u[rowPoints+2]);
         iterationCount++;
         tmp = u_old;
         u_old = u;
