@@ -44,15 +44,12 @@
             error += updateVal*updateVal;
         }
     }
-    return sqrt(error)/((maxXCount-2)*(maxYCount-2));
+    //printf("MAX X : %d MAX Y: %d\n",maxXCount,maxXCount);
+    return error;
 }
 
 
-static inline double checkSolution(double xStart, double yStart,
-                     int maxXCount, int maxYCount,
-                     double *u,
-                     double deltaX, double deltaY,
-                     double alpha){
+static inline double checkSolution(double xStart, double yStart, int maxXCount, int maxYCount, double *u, double deltaX, double deltaY, double alpha){
 #define U(XX,YY) u[(YY)*maxXCount+(XX)]
     int x, y;
     double fX, fY;
@@ -68,7 +65,7 @@ static inline double checkSolution(double xStart, double yStart,
             error += localError*localError;
         }
     }
-    return sqrt(error)/((maxXCount-2)*(maxYCount-2));
+    return error;
 }
 
 static inline int* getNeighbors(MPI_Comm cart_comm,int myRank,int sizeX, int sizeY){
@@ -129,16 +126,9 @@ static inline int setup(double *u, double * u_old,int n,int m,int allocCount){
         return(0);
 }
 
-static inline int getSizes(int n, int m, int procs, int* sizeX, int* sizeY, int* rowPoints, int* columnPoints){
-    if(sqrt(procs) == ceil(sqrt(procs))){
-        *sizeX = (int)sqrt(procs);
-        *sizeY = *sizeX;
-    }else{
-        *sizeX = 8;
-        *sizeY = 10;
-    }
-    *rowPoints = (int)(n/ *sizeX);
-    *columnPoints = (int)(m/ *sizeY);
+static inline int getSizes(int n, int m, int procs, int sizeX, int sizeY, int* rowPoints, int* columnPoints){
+    *rowPoints = (int)(n/ sizeX);
+    *columnPoints = (int)(m/ sizeY);
     //printf("N: %d M:%d Procs %d SizeX: %d SizeY: %d rowPoints: %d columnPoints: %d\n", n,  m,  procs, * sizeX, * sizeY, * rowPoints, * columnPoints);
     return 0;
 }
@@ -169,7 +159,7 @@ int main(int argc, char **argv){
     MPI_Request requestDownSend,requestDownGet;
     MPI_Request requestLeftSend,requestLeftGet;
     MPI_Request requestRightSend,requestRightGet;
-    int dim[] = {3,3};
+    
     int period[] = {0, 0};
     int reorder = 1;
     int *myNeighbors;
@@ -182,7 +172,7 @@ int main(int argc, char **argv){
     int rowPoints;
     int columnPoints;
     double* receivedLeft, *receivedRight, *receivedUp, *receivedDown;
-
+    double absoluteError;
 
     // General Setup
     int n, m, maxIterationCount,allocCount,iterationCount;
@@ -206,9 +196,17 @@ int main(int argc, char **argv){
     iterationCount = 0;
     error = HUGE_VAL;
 
-
     //######### START OF MPI #########
     MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
+    if(sqrt(comm_sz) == ceil(sqrt(comm_sz))){
+        sizeX = (int)sqrt(comm_sz);
+        sizeY = sizeX;
+    }else{
+        sizeX = 8;
+        sizeY = 10;
+    }
+    int dim[] = {sizeX,sizeY};
     MPI_Cart_create(MPI_COMM_WORLD, 2, dim, period, reorder,&cart_comm);
     t1 = MPI_Wtime();
     MPI_Pcontrol(control);
@@ -224,7 +222,7 @@ int main(int argc, char **argv){
         scanf("%lf", &relax);
         scanf("%lf", &maxAcceptableError);
         scanf("%d", &maxIterationCount);
-        //printf("-> %d, %d, %g, %g, %g, %d\n", n, m, alpha, relax, maxAcceptableError, maxIterationCount);
+        printf("-> %d, %d, %g, %g, %g, %d\n", n, m, alpha, relax, maxAcceptableError, maxIterationCount);
         buffInt[0] = n;
         buffInt[1] = m;
         buffInt[2]=maxIterationCount;
@@ -252,7 +250,7 @@ int main(int argc, char **argv){
     //printf("-> %g, %g, %g\n", alpha, relax, maxAcceptableError);
 
     // Get Dimensions of Grid 
-    getSizes(n, m, comm_sz, &sizeX, &sizeY, &rowPoints, &columnPoints);
+    getSizes(n, m, comm_sz, sizeX, sizeY, &rowPoints, &columnPoints);
 
     //Custom Column Datatype
     MPI_Type_vector(columnPoints+2, 1, columnPoints+2, MPI_DOUBLE, &column_type);
@@ -267,7 +265,7 @@ int main(int argc, char **argv){
 
     // Calculate Deltas and X/Y coordinates of submatrix
     calculateDims(n ,m, sizeX, sizeY,rowPoints, columnPoints, cords, &xLeft, &xRight, &yBottom, &yUp, &deltaX, &deltaY);
-    
+    printf("Rank: %d, xStart: %f yStart: %f\n",my_rank,xLeft,yBottom);
     // Create the two sub-matrixes
     allocCount = (rowPoints+2)*(columnPoints+2);
 
@@ -283,7 +281,7 @@ int main(int argc, char **argv){
     }
 
 
-    printf("RANK : %d UP: %d DOWN: %d LEFT: %d RIGHT: %d\n",my_rank,myNeighbors[0],myNeighbors[1],myNeighbors[3],myNeighbors[2]);
+    //printf("RANK : %d UP: %d DOWN: %d LEFT: %d RIGHT: %d\n",my_rank,myNeighbors[0],myNeighbors[1],myNeighbors[3],myNeighbors[2]);
 
     // Create the Receive Buffers
     if (myNeighbors[0] != -1){
@@ -316,21 +314,23 @@ int main(int argc, char **argv){
             MPI_Isend(&u_old[1], 1, column_type, myNeighbors[3], 0, MPI_COMM_WORLD, &requestLeftSend);
         }
         
-        printf("RANK : %d\n",my_rank);
+        //printf("RANK : %d\n",my_rank);
         // Receive Operations
         if (myNeighbors[0] != -1){
             MPI_Irecv(receivedUp, rowPoints+2, row_type, myNeighbors[0], 0, MPI_COMM_WORLD, &requestUpGet);
+            //printf("I am %d and I received from %d (Up) \n",my_rank,myNeighbors[0]);
         }
         if (myNeighbors[1] != -1){
             MPI_Irecv(receivedDown, rowPoints+2, row_type, myNeighbors[1], 0, MPI_COMM_WORLD, &requestDownGet);
+            //printf("I am %d and I received from %d (Down) \n",my_rank,myNeighbors[1]);
         }
         if (myNeighbors[2] != -1){
             MPI_Irecv(receivedRight, columnPoints+2, MPI_DOUBLE, myNeighbors[2], 0, MPI_COMM_WORLD, &requestRightGet);
-            printf("I am %d and I received from %d (Right) \n",my_rank,myNeighbors[2]);
+            //printf("I am %d and I received from %d (Right) \n",my_rank,myNeighbors[2]);
         }
         if (myNeighbors[3] != -1){
             MPI_Irecv(receivedLeft, columnPoints+2, MPI_DOUBLE, myNeighbors[3], 0, MPI_COMM_WORLD, &requestLeftGet);
-            printf("I am %d and I received from %d (Left) \n",my_rank,myNeighbors[2]);
+            //printf("I am %d and I received from %d (Left) \n",my_rank,myNeighbors[3]);
         }
 
 
@@ -365,20 +365,37 @@ int main(int argc, char **argv){
             }
         }
         
-        error = one_jacobi_iteration(xLeft, yBottom, rowPoints+2, columnPoints+2,u_old, u,deltaX, deltaY, alpha, relax);
-        //printf("ERROR: %g \n",error);
-        printf("ELEMENT 1: %g\n",u[rowPoints+2]);
+        // Calculate Error
+        error = one_jacobi_iteration(xLeft, yBottom, rowPoints+2, columnPoints+2, u_old, u,deltaX, deltaY, alpha, relax);
+        MPI_Allreduce(&error, &error, 1, MPI_DOUBLE, MPI_SUM,MPI_COMM_WORLD);
+
+        error=sqrt(error)/(n*m);
+        printf("ERROR: %g \n",error);
         iterationCount++;
         tmp = u_old;
         u_old = u;
         u = tmp;
     }
 
+    // Check the solution
+    absoluteError= checkSolution(xLeft, yBottom, rowPoints+2, columnPoints+2, u_old, deltaX, deltaY, alpha);
+    MPI_Allreduce(&absoluteError, &absoluteError, 1, MPI_DOUBLE, MPI_SUM,MPI_COMM_WORLD);
+    absoluteError=sqrt(absoluteError)/(n*m);
+
+    printf("The error of the iterative solution is %g\n", absoluteError);
+
+
     t2 = MPI_Wtime();
     MPI_Finalize();
     //######### END OF MPI #########
     
+    // Final Measurements
+    //printf( "Iterations=%3d Elapsed MPI Wall time is %f\n", iterationCount, t2 - t1 );
     diff = clock() - start;
     int msec = diff * 1000 / CLOCKS_PER_SEC;
+    //printf("Time taken %d seconds %d milliseconds\n", msec/1000, msec%1000);
+    //printf("Residual %g\n",error);
+
+
     return 0;
 }
