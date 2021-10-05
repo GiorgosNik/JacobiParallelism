@@ -16,7 +16,7 @@
                             int maxXCount, int maxYCount,
                             double *src, double *dst,
                             double deltaX, double deltaY,
-                            double alpha, double omega){
+                            double alpha, double omega,int * count){
 #define SRC(XX,YY) src[(YY)*maxXCount+(XX)]
 #define DST(XX,YY) dst[(YY)*maxXCount+(XX)]
     int x, y;
@@ -29,11 +29,12 @@
     double cy = 1.0/(deltaY*deltaY);
     double cc = -2.0*cx-2.0*cy-alpha;
 
-    for (y = 1; y < (maxYCount-1); y++)
+    for (y = 2; y < (maxYCount-3); y++)
     {
         fY = yStart + (y-1)*deltaY;
-        for (x = 1; x < (maxXCount-1); x++)
-        {
+        for (x = 2; x < (maxXCount-3); x++)
+        {   
+            //printf("INNER X: %d Y: %d\n",x,y);
             fX = xStart + (x-1)*deltaX;
             f = -alpha*(1.0-fX*fX)*(1.0-fY*fY) - 2.0*(1.0-fX*fX) - 2.0*(1.0-fY*fY);
             updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*cx +
@@ -42,11 +43,102 @@
 						)/cc;
             DST(x,y) = SRC(x,y) - omega*updateVal;
             error += updateVal*updateVal;
+            *count+=1;
         }
     }
     //printf("MAX X : %d MAX Y: %d\n",maxXCount,maxXCount);
     return error;
 }
+static inline double one_jacobi_iterationOut(double xStart, double yStart,
+                            int maxXCount, int maxYCount,
+                            double *src, double *dst,
+                            double deltaX, double deltaY,
+                            double alpha, double omega,int * count){
+#define SRC(XX,YY) src[(YY)*maxXCount+(XX)]
+#define DST(XX,YY) dst[(YY)*maxXCount+(XX)]
+    int x, y;
+    double fX, fY;
+    double error = 0.0;
+    double updateVal;
+    double f;
+    // Coefficients
+    double cx = 1.0/(deltaX*deltaX);
+    double cy = 1.0/(deltaY*deltaY);
+    double cc = -2.0*cx-2.0*cy-alpha;
+
+    for (y = maxYCount-2; y < (maxYCount-1); y++)
+    {
+        fY = yStart + (y-1)*deltaY;
+        for (x = 1; x < (maxXCount-1); x++)
+        {   
+            //printf("INNER X: %d Y: %d\n",x,y);
+            fX = xStart + (x-1)*deltaX;
+            f = -alpha*(1.0-fX*fX)*(1.0-fY*fY) - 2.0*(1.0-fX*fX) - 2.0*(1.0-fY*fY);
+            updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*cx +
+                			(SRC(x,y-1) + SRC(x,y+1))*cy +
+                			SRC(x,y)*cc - f
+						)/cc;
+            DST(x,y) = SRC(x,y) - omega*updateVal;
+            error += updateVal*updateVal;
+            *count+=1;
+        }
+    }
+    for (y = 1; y < (2); y++)
+    {
+        fY = yStart + (y-1)*deltaY;
+        for (x = 1; x < (maxXCount-1); x++)
+        {   
+            //printf("INNER X: %d Y: %d\n",x,y);
+            fX = xStart + (x-1)*deltaX;
+            f = -alpha*(1.0-fX*fX)*(1.0-fY*fY) - 2.0*(1.0-fX*fX) - 2.0*(1.0-fY*fY);
+            updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*cx +
+                			(SRC(x,y-1) + SRC(x,y+1))*cy +
+                			SRC(x,y)*cc - f
+						)/cc;
+            DST(x,y) = SRC(x,y) - omega*updateVal;
+            error += updateVal*updateVal;
+            *count+=1;
+        }
+    }
+    for (y = 1; y < (maxYCount-1); y++)
+    {
+        fY = yStart + (y-1)*deltaY;
+        for (x = 1; x < (2); x++)
+        {   
+            //printf("INNER X: %d Y: %d\n",x,y);
+            fX = xStart + (x-1)*deltaX;
+            f = -alpha*(1.0-fX*fX)*(1.0-fY*fY) - 2.0*(1.0-fX*fX) - 2.0*(1.0-fY*fY);
+            updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*cx +
+                			(SRC(x,y-1) + SRC(x,y+1))*cy +
+                			SRC(x,y)*cc - f
+						)/cc;
+            DST(x,y) = SRC(x,y) - omega*updateVal;
+            error += updateVal*updateVal;
+            *count+=1;
+        }
+    }
+    for (y = 1; y < (maxYCount-1); y++)
+    {
+        fY = yStart + (y-1)*deltaY;
+        for (x = maxXCount-2; x < (maxXCount-1); x++)
+        {   
+            //printf("INNER X: %d Y: %d\n",x,y);
+            fX = xStart + (x-1)*deltaX;
+            f = -alpha*(1.0-fX*fX)*(1.0-fY*fY) - 2.0*(1.0-fX*fX) - 2.0*(1.0-fY*fY);
+            updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*cx +
+                			(SRC(x,y-1) + SRC(x,y+1))*cy +
+                			SRC(x,y)*cc - f
+						)/cc;
+            DST(x,y) = SRC(x,y) - omega*updateVal;
+            error += updateVal*updateVal;
+            *count+=1;
+        }
+    }
+    //printf("MAX X : %d MAX Y: %d\n",maxXCount,maxXCount);
+    return error;
+}
+
+
 
 
 static inline double checkSolution(double xStart, double yStart, int maxXCount, int maxYCount, double *u, double deltaX, double deltaY, double alpha){
@@ -189,7 +281,7 @@ int main(int argc, char **argv){
     double buffDouble[3];
     double xLeft, xRight;
     double yBottom, yUp;
-
+    int count=0;
     double deltaX;
     double deltaY;
 
@@ -265,7 +357,7 @@ int main(int argc, char **argv){
 
     // Calculate Deltas and X/Y coordinates of submatrix
     calculateDims(n ,m, sizeX, sizeY,rowPoints, columnPoints, cords, &xLeft, &xRight, &yBottom, &yUp, &deltaX, &deltaY);
-    printf("Rank: %d, xStart: %f yStart: %f\n",my_rank,xLeft,yBottom);
+    //printf("Rank: %d, xStart: %f yStart: %f\n",my_rank,xLeft,yBottom);
     // Create the two sub-matrixes
     allocCount = (rowPoints+2)*(columnPoints+2);
 
@@ -300,6 +392,27 @@ int main(int argc, char **argv){
     // Start Jacobi Calculations
     while (iterationCount < maxIterationCount && error > maxAcceptableError)
     {   
+        count=0;
+        
+        //printf("RANK : %d\n",my_rank);
+        // Receive Operations
+        if (myNeighbors[0] != -1){
+            MPI_Irecv(&(u_old[0]), rowPoints+2, row_type, myNeighbors[0], 0, MPI_COMM_WORLD, &requestUpGet);
+            //printf("I am %d and I received from %d (Up) \n",my_rank,myNeighbors[0]);
+        }
+        if (myNeighbors[1] != -1){
+            MPI_Irecv(&(u_old[columnPoints+1]), rowPoints+2, row_type, myNeighbors[1], 0, MPI_COMM_WORLD, &requestDownGet);
+            //printf("I am %d and I received from %d (Down) \n",my_rank,myNeighbors[1]);
+        }
+        if (myNeighbors[2] != -1){
+            MPI_Irecv(&(u_old[(rowPoints+1)]), columnPoints+2, column_type, myNeighbors[2], 0, MPI_COMM_WORLD, &requestRightGet);
+            //printf("I am %d and I received from %d (Right) \n",my_rank,myNeighbors[2]);
+        }
+        if (myNeighbors[3] != -1){
+            MPI_Irecv(&(u_old[0]), columnPoints+2, column_type, myNeighbors[3], 0, MPI_COMM_WORLD, &requestLeftGet);
+            //printf("I am %d and I received from %d (Left) \n",my_rank,myNeighbors[3]);
+        }
+
         // Sending Operations
         if (myNeighbors[0] != -1){
             MPI_Isend(&u_old[rowPoints], 1, row_type,myNeighbors[0] , 0, MPI_COMM_WORLD, &requestUpSend);
@@ -313,64 +426,53 @@ int main(int argc, char **argv){
         if (myNeighbors[3] != -1){
             MPI_Isend(&u_old[1], 1, column_type, myNeighbors[3], 0, MPI_COMM_WORLD, &requestLeftSend);
         }
-        
-        //printf("RANK : %d\n",my_rank);
-        // Receive Operations
-        if (myNeighbors[0] != -1){
-            MPI_Irecv(receivedUp, rowPoints+2, row_type, myNeighbors[0], 0, MPI_COMM_WORLD, &requestUpGet);
-            //printf("I am %d and I received from %d (Up) \n",my_rank,myNeighbors[0]);
-        }
-        if (myNeighbors[1] != -1){
-            MPI_Irecv(receivedDown, rowPoints+2, row_type, myNeighbors[1], 0, MPI_COMM_WORLD, &requestDownGet);
-            //printf("I am %d and I received from %d (Down) \n",my_rank,myNeighbors[1]);
-        }
-        if (myNeighbors[2] != -1){
-            MPI_Irecv(receivedRight, columnPoints+2, MPI_DOUBLE, myNeighbors[2], 0, MPI_COMM_WORLD, &requestRightGet);
-            //printf("I am %d and I received from %d (Right) \n",my_rank,myNeighbors[2]);
-        }
-        if (myNeighbors[3] != -1){
-            MPI_Irecv(receivedLeft, columnPoints+2, MPI_DOUBLE, myNeighbors[3], 0, MPI_COMM_WORLD, &requestLeftGet);
-            //printf("I am %d and I received from %d (Left) \n",my_rank,myNeighbors[3]);
-        }
 
 
         // Wait for Sending and Receiving to Complete
         if (myNeighbors[0] != -1){
-            MPI_Wait(&requestUpSend, MPI_STATUS_IGNORE);
             MPI_Wait(&requestUpGet, MPI_STATUS_IGNORE);
-            for(int i = 1;i<=columnPoints;i++){
-                receivedUp[i]=0;
-                u_old[i]=receivedUp[i];
-            }
+        }
+        if (myNeighbors[1] != -1){
+            MPI_Wait(&requestDownGet, MPI_STATUS_IGNORE);
+        }
+        if (myNeighbors[2] != -1){
+            MPI_Wait(&requestRightGet, MPI_STATUS_IGNORE);
+        }
+        if (myNeighbors[3] != -1){
+            MPI_Wait(&requestLeftGet, MPI_STATUS_IGNORE);
+        }
+        error=0;
+        error = one_jacobi_iteration(xLeft, yBottom, rowPoints+2, columnPoints+2, u_old, u,deltaX, deltaY, alpha, relax,&count);
+        
+
+        if (myNeighbors[0] != -1){
+            MPI_Wait(&requestUpSend, MPI_STATUS_IGNORE);
         }
         if (myNeighbors[1] != -1){
             MPI_Wait(&requestDownSend, MPI_STATUS_IGNORE);
-            MPI_Wait(&requestDownGet, MPI_STATUS_IGNORE);
-            for(int i = 1;i<=columnPoints;i++){
-                u_old[(columnPoints+1)*(rowPoints+2)+i]=receivedDown[i];
-            }
         }
         if (myNeighbors[2] != -1){
             MPI_Wait(&requestRightSend, MPI_STATUS_IGNORE);
-            MPI_Wait(&requestRightGet, MPI_STATUS_IGNORE);
-            for(int i = 1;i<=columnPoints;i++){
-                u_old[(rowPoints+2)*i+rowPoints+1]=receivedRight[i];
-            }
         }
         if (myNeighbors[3] != -1){
             MPI_Wait(&requestLeftSend, MPI_STATUS_IGNORE);
-            MPI_Wait(&requestLeftGet, MPI_STATUS_IGNORE);
-            for(int i = 1;i<=columnPoints;i++){
-                u_old[(rowPoints+2)*i]=receivedLeft[i];
-            }
         }
         
-        // Calculate Error
-        error = one_jacobi_iteration(xLeft, yBottom, rowPoints+2, columnPoints+2, u_old, u,deltaX, deltaY, alpha, relax);
+        // Calculate Internal Jacobi
+        
+        error += one_jacobi_iterationOut(xLeft, yBottom, rowPoints+2, columnPoints+2, u_old, u,deltaX, deltaY, alpha, relax,&count);
+
+
+        // Calculate External Jacobi
+        
+        
+        
+        printf("Count: %d\n",count);
+
         MPI_Allreduce(&error, &error, 1, MPI_DOUBLE, MPI_SUM,MPI_COMM_WORLD);
 
         error=sqrt(error)/(n*m);
-        printf("ERROR: %g \n",error);
+        //printf("ERROR: %g \n",error);
         iterationCount++;
         tmp = u_old;
         u_old = u;
@@ -382,20 +484,23 @@ int main(int argc, char **argv){
     MPI_Allreduce(&absoluteError, &absoluteError, 1, MPI_DOUBLE, MPI_SUM,MPI_COMM_WORLD);
     absoluteError=sqrt(absoluteError)/(n*m);
 
-    printf("The error of the iterative solution is %g\n", absoluteError);
+   
 
 
     t2 = MPI_Wtime();
     MPI_Finalize();
     //######### END OF MPI #########
+    if(my_rank==0){
+
     
     // Final Measurements
-    //printf( "Iterations=%3d Elapsed MPI Wall time is %f\n", iterationCount, t2 - t1 );
+    printf( "Iterations=%3d Elapsed MPI Wall time is %f\n", iterationCount, t2 - t1 );
+    printf("The error of the iterative solution is %g\n", absoluteError);
     diff = clock() - start;
     int msec = diff * 1000 / CLOCKS_PER_SEC;
-    //printf("Time taken %d seconds %d milliseconds\n", msec/1000, msec%1000);
-    //printf("Residual %g\n",error);
-
+    printf("Time taken %d seconds %d milliseconds\n", msec/1000, msec%1000);
+    printf("Residual %g\n",error);
+    }
 
     return 0;
 }
