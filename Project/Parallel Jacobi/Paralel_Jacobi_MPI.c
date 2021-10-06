@@ -23,15 +23,18 @@
     double error = 0.0;
     double updateVal;
     double f;
+    double deltaXSQR=deltaX*deltaX;
+    double deltaYSQR=deltaY*deltaY;
+
     // Coefficients
     for (y = 2; y < (maxYCount-3); y++)
     {
         for (x = 2; x < (maxXCount-3); x++)
         {   
-            updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*(1.0/(deltaX*deltaX)) +
-                			(SRC(x,y-1) + SRC(x,y+1))*(1.0/(deltaY*deltaY)) +
-                			SRC(x,y)* (-2.0*(1.0/(deltaX*deltaX))-2.0*(1.0/(deltaY*deltaY))-alpha) - (-alpha*(1.0-(xStart + (x-1)*deltaX)*(xStart + (x-1)*deltaX))*(1.0-(yStart + (y-1)*deltaY)*(yStart + (y-1)*deltaY)) - 2.0*(1.0-(xStart + (x-1)*deltaX)*(xStart + (x-1)*deltaX)) - 2.0*(1.0-(yStart + (y-1)*deltaY)*(yStart + (y-1)*deltaY)))
-						)/ (-2.0*(1.0/(deltaX*deltaX))-2.0*(1.0/(deltaY*deltaY))-alpha);
+            updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*(1.0/(deltaXSQR)) +
+                			(SRC(x,y-1) + SRC(x,y+1))*(1.0/(deltaYSQR)) +
+                			SRC(x,y)* (-2.0*(1.0/(deltaXSQR))-2.0*(1.0/(deltaYSQR))-alpha) - (-alpha*(1.0-(xStart + (x-1)*deltaX)*(xStart + (x-1)*deltaX))*(1.0-(yStart + (y-1)*deltaY)*(yStart + (y-1)*deltaY)) - 2.0*(1.0-(xStart + (x-1)*deltaX)*(xStart + (x-1)*deltaX)) - 2.0*(1.0-(yStart + (y-1)*deltaY)*(yStart + (y-1)*deltaY)))
+						)/ (-2.0*(1.0/(deltaXSQR))-2.0*(1.0/(deltaYSQR))-alpha);
             DST(x,y) = SRC(x,y) - omega*updateVal;
             error += updateVal*updateVal;
         }
@@ -50,23 +53,21 @@ static inline double one_jacobi_iterationOut(double xStart, double yStart,
     double error = 0.0;
     double updateVal;
     double f;
+    double deltaXSQR=deltaX*deltaX;
+    double deltaYSQR=deltaY*deltaY;
 
     // Coefficients
-    double cx = 1.0/(deltaX*deltaX);
-    double cy = 1.0/(deltaY*deltaY);
-    double cc = -2.0*cx-2.0*cy-alpha;
+
 
     for (y = maxYCount-2; y < (maxYCount-1); y++)
     {
         fY = yStart + (y-1)*deltaY;
         for (x = 1; x < (maxXCount-1); x++)
         {   
-            fX = xStart + (x-1)*deltaX;
-            f = -alpha*(1.0-fX*fX)*(1.0-fY*fY) - 2.0*(1.0-fX*fX) - 2.0*(1.0-fY*fY);
-            updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*cx +
-                			(SRC(x,y-1) + SRC(x,y+1))*cy +
-                			SRC(x,y)*cc - f
-						)/cc;
+            updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*(1.0/(deltaXSQR)) +
+                			(SRC(x,y-1) + SRC(x,y+1))*(1.0/(deltaYSQR)) +
+                			SRC(x,y)* (-2.0*(1.0/(deltaXSQR))-2.0*(1.0/(deltaYSQR))-alpha) - (-alpha*(1.0-(xStart + (x-1)*deltaX)*(xStart + (x-1)*deltaX))*(1.0-(yStart + (y-1)*deltaY)*(yStart + (y-1)*deltaY)) - 2.0*(1.0-(xStart + (x-1)*deltaX)*(xStart + (x-1)*deltaX)) - 2.0*(1.0-(yStart + (y-1)*deltaY)*(yStart + (y-1)*deltaY)))
+						)/ (-2.0*(1.0/(deltaXSQR))-2.0*(1.0/(deltaYSQR))-alpha);
             DST(x,y) = SRC(x,y) - omega*updateVal;
             error += updateVal*updateVal;
         }
@@ -76,12 +77,10 @@ static inline double one_jacobi_iterationOut(double xStart, double yStart,
         fY = yStart + (y-1)*deltaY;
         for (x = 1; x < (maxXCount-1); x++)
         {   
-            fX = xStart + (x-1)*deltaX;
-            f = -alpha*(1.0-fX*fX)*(1.0-fY*fY) - 2.0*(1.0-fX*fX) - 2.0*(1.0-fY*fY);
-            updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*cx +
-                			(SRC(x,y-1) + SRC(x,y+1))*cy +
-                			SRC(x,y)*cc - f
-						)/cc;
+            updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*(1.0/(deltaXSQR)) +
+                			(SRC(x,y-1) + SRC(x,y+1))*(1.0/(deltaYSQR)) +
+                			SRC(x,y)* (-2.0*(1.0/(deltaXSQR))-2.0*(1.0/(deltaYSQR))-alpha) - (-alpha*(1.0-(xStart + (x-1)*deltaX)*(xStart + (x-1)*deltaX))*(1.0-(yStart + (y-1)*deltaY)*(yStart + (y-1)*deltaY)) - 2.0*(1.0-(xStart + (x-1)*deltaX)*(xStart + (x-1)*deltaX)) - 2.0*(1.0-(yStart + (y-1)*deltaY)*(yStart + (y-1)*deltaY)))
+						)/ (-2.0*(1.0/(deltaXSQR))-2.0*(1.0/(deltaYSQR))-alpha);
             DST(x,y) = SRC(x,y) - omega*updateVal;
             error += updateVal*updateVal;
         }
@@ -91,12 +90,10 @@ static inline double one_jacobi_iterationOut(double xStart, double yStart,
         fY = yStart + (y-1)*deltaY;
         for (x = 1; x < (2); x++)
         {   
-            fX = xStart + (x-1)*deltaX;
-            f = -alpha*(1.0-fX*fX)*(1.0-fY*fY) - 2.0*(1.0-fX*fX) - 2.0*(1.0-fY*fY);
-            updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*cx +
-                			(SRC(x,y-1) + SRC(x,y+1))*cy +
-                			SRC(x,y)*cc - f
-						)/cc;
+            updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*(1.0/(deltaXSQR)) +
+                			(SRC(x,y-1) + SRC(x,y+1))*(1.0/(deltaYSQR)) +
+                			SRC(x,y)* (-2.0*(1.0/(deltaXSQR))-2.0*(1.0/(deltaYSQR))-alpha) - (-alpha*(1.0-(xStart + (x-1)*deltaX)*(xStart + (x-1)*deltaX))*(1.0-(yStart + (y-1)*deltaY)*(yStart + (y-1)*deltaY)) - 2.0*(1.0-(xStart + (x-1)*deltaX)*(xStart + (x-1)*deltaX)) - 2.0*(1.0-(yStart + (y-1)*deltaY)*(yStart + (y-1)*deltaY)))
+						)/ (-2.0*(1.0/(deltaXSQR))-2.0*(1.0/(deltaYSQR))-alpha);
             DST(x,y) = SRC(x,y) - omega*updateVal;
             error += updateVal*updateVal;
         }
@@ -106,12 +103,10 @@ static inline double one_jacobi_iterationOut(double xStart, double yStart,
         fY = yStart + (y-1)*deltaY;
         for (x = maxXCount-2; x < (maxXCount-1); x++)
         {   
-            fX = xStart + (x-1)*deltaX;
-            f = -alpha*(1.0-fX*fX)*(1.0-fY*fY) - 2.0*(1.0-fX*fX) - 2.0*(1.0-fY*fY);
-            updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*cx +
-                			(SRC(x,y-1) + SRC(x,y+1))*cy +
-                			SRC(x,y)*cc - f
-						)/cc;
+            updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*(1.0/(deltaXSQR)) +
+                			(SRC(x,y-1) + SRC(x,y+1))*(1.0/(deltaYSQR)) +
+                			SRC(x,y)* (-2.0*(1.0/(deltaXSQR))-2.0*(1.0/(deltaYSQR))-alpha) - (-alpha*(1.0-(xStart + (x-1)*deltaX)*(xStart + (x-1)*deltaX))*(1.0-(yStart + (y-1)*deltaY)*(yStart + (y-1)*deltaY)) - 2.0*(1.0-(xStart + (x-1)*deltaX)*(xStart + (x-1)*deltaX)) - 2.0*(1.0-(yStart + (y-1)*deltaY)*(yStart + (y-1)*deltaY)))
+						)/ (-2.0*(1.0/(deltaXSQR))-2.0*(1.0/(deltaYSQR))-alpha);
             DST(x,y) = SRC(x,y) - omega*updateVal;
             error += updateVal*updateVal;
         }
@@ -461,5 +456,6 @@ int main(int argc, char **argv){
         printf("Time taken %d seconds %d milliseconds\n", msec/1000, msec%1000);
         printf("Residual %g\n",error);
     }
+
     return 0;
 }
