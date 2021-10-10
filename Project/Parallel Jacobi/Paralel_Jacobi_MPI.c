@@ -276,7 +276,6 @@ int main(int argc, char **argv){
     int dim[] = {sizeX,sizeY};
     MPI_Cart_create(MPI_COMM_WORLD, 2, dim, period, reorder,&cart_comm);
     
-    MPI_Pcontrol(control);
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
     
     MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
