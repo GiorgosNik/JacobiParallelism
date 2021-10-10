@@ -28,9 +28,10 @@
     double deltaYSQR=deltaY*deltaY;
 
     // Coefficients
+    #pragma omp parallel for
     for (y = 2; y < (maxYCount-3); y++)
     {
-        #pragma omp parallel for
+        
         for (x = 2; x < (maxXCount-3); x++)
         {   
             updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*(1.0/(deltaXSQR)) +
@@ -60,7 +61,7 @@ static inline double one_jacobi_iterationOut(double xStart, double yStart,
 
     // Coefficients
 
-
+    #pragma omp parallel for
     for (y = maxYCount-2; y < (maxYCount-1); y++)
     {
         fY = yStart + (y-1)*deltaY;
@@ -74,6 +75,7 @@ static inline double one_jacobi_iterationOut(double xStart, double yStart,
             error += updateVal*updateVal;
         }
     }
+    #pragma omp parallel for
     for (y = 1; y < (2); y++)
     {
         fY = yStart + (y-1)*deltaY;
@@ -87,6 +89,7 @@ static inline double one_jacobi_iterationOut(double xStart, double yStart,
             error += updateVal*updateVal;
         }
     }
+    #pragma omp parallel for
     for (y = 1; y < (maxYCount-1); y++)
     {
         fY = yStart + (y-1)*deltaY;
@@ -100,6 +103,7 @@ static inline double one_jacobi_iterationOut(double xStart, double yStart,
             error += updateVal*updateVal;
         }
     }
+    #pragma omp parallel for
     for (y = 1; y < (maxYCount-1); y++)
     {
         fY = yStart + (y-1)*deltaY;
