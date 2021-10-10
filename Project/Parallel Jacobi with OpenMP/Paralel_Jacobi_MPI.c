@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <mpi.h>
+#include <omp.h>
 #define send_data_tag 2001
 
 /*************************************************************
@@ -29,6 +30,7 @@
     // Coefficients
     for (y = 2; y < (maxYCount-3); y++)
     {
+        #pragma omp parallel for
         for (x = 2; x < (maxXCount-3); x++)
         {   
             updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*(1.0/(deltaXSQR)) +
@@ -284,6 +286,7 @@ int main(int argc, char **argv){
     MPI_Cart_coords(cart_comm,my_rank,2,cords);
     
     MPI_Cart_coords(cart_comm,my_rank,2,cords);
+    
     if(my_rank == 0){
         scanf("%d,%d", &n, &m);
         scanf("%lf", &alpha);
