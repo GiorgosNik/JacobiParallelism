@@ -259,7 +259,7 @@ int main(int argc, char **argv){
     iterationCount = 0;
     error = HUGE_VAL;
     
-
+    MPI_Pcontrol(1);
     //######### START OF MPI #########
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
@@ -439,6 +439,7 @@ int main(int argc, char **argv){
         u = tmp;
     }
     t2 = MPI_Wtime();
+    MPI_Pcontrol(0);
     // Check the solution
     absoluteError= checkSolution(xLeft, yBottom, rowPoints+2, columnPoints+2, u_old, deltaX, deltaY, alpha);
     MPI_Allreduce(&absoluteError, &absoluteError, 1, MPI_DOUBLE, MPI_SUM,MPI_COMM_WORLD);
