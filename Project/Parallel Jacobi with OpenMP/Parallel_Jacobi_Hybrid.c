@@ -275,6 +275,9 @@ int main(int argc, char **argv){
     }else if(comm_sz==2){
         sizeX = 2;
         sizeY = 1;
+}else if(comm_sz==40){
+sizeX=4;
+sizeY=10;
     }else{
         sizeX = 8;
         sizeY = 10;

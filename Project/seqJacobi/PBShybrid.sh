@@ -14,10 +14,10 @@
 
 # How many nodes and tasks per node
 # Example 4 nodes, 8 cores/node, 8 mpiprocs/node => 32 procs on 32 cores
-#PBS -l select=4:ncpus=2:mpiprocs=2
+#PBS -l select=2:ncpus=2:mpiprocs=1:ompthreads=2:mem=16400000kb
 
 #Change Working directory to SUBMIT directory
 cd $PBS_O_WORKDIR
 
 # Run executable #
-mpirun jacobi_paralel.x
+mpirun --bind-to none Parallel_Jacobi_Hybrid.x<input
