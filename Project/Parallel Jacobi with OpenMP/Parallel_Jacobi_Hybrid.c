@@ -27,7 +27,7 @@
     double deltaXSQR=deltaX*deltaX;
     double deltaYSQR=deltaY*deltaY;
 
-    // Coefficients
+    // Parallelization Directive for the Loops
     #pragma omp parallel for
     for (y = 2; y < (maxYCount-3); y++)
     {
@@ -118,6 +118,8 @@ static inline double one_jacobi_iterationOut(double xStart, double yStart,
         }
     }
     return error;
+}
+
 }
 
 static inline double checkSolution(double xStart, double yStart, int maxXCount, int maxYCount, double *u, double deltaX, double deltaY, double alpha){
@@ -265,7 +267,7 @@ int main(int argc, char **argv){
     iterationCount = 0;
     error = HUGE_VAL;
     
-
+    MPI_Pcontrol(1);
     //######### START OF MPI #########
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
@@ -275,26 +277,22 @@ int main(int argc, char **argv){
     }else if(comm_sz==2){
         sizeX = 2;
         sizeY = 1;
-}else if(comm_sz==40){
-sizeX=4;
-sizeY=10;
     }else{
-        sizeX = 8;
+        sizeX = 4;
         sizeY = 10;
     }
     int dim[] = {sizeX,sizeY};
+
+    // Create the Cartesian Grid
     MPI_Cart_create(MPI_COMM_WORLD, 2, dim, period, reorder,&cart_comm);
     
-    MPI_Pcontrol(control);
+    // Get my Rank and the number of other procs
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
-    
     MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
-    
-    MPI_Cart_coords(cart_comm,my_rank,2,cords);
-    
     MPI_Cart_coords(cart_comm,my_rank,2,cords);
     
     if(my_rank == 0){
+        // If I am the master proc, get and transmit the input to the others
         scanf("%d,%d", &n, &m);
         scanf("%lf", &alpha);
         scanf("%lf", &relax);
@@ -356,20 +354,7 @@ sizeY=10;
         exit(1);
     }
 
-    // Create the Receive Buffers
-    if (myNeighbors[0] != -1){
-        receivedUp=malloc(sizeof(double)*(rowPoints+2));
-    }
-    if (myNeighbors[1] != -1){
-        receivedDown=malloc(sizeof(double)*(rowPoints+2));    
-    }
-    if (myNeighbors[2] != -1){
-        receivedRight=malloc(sizeof(double)*(columnPoints+2));   
-    }
-    if (myNeighbors[3] != -1){
-        receivedLeft=malloc(sizeof(double)*(columnPoints+2));      
-    }
-
+    // Barrier to sync all procs
     MPI_Barrier(MPI_COMM_WORLD);
     t1 = MPI_Wtime();
     // Start Jacobi Calculations
@@ -406,6 +391,9 @@ sizeY=10;
         }
 
 
+        // Calculate Internal Jacobi
+        error = one_jacobi_iteration(xLeft, yBottom, rowPoints+2, columnPoints+2, u_old, u,deltaX, deltaY, alpha, relax);
+
         // Wait for Sending and Receiving to Complete
         if (myNeighbors[0] != -1){
             MPI_Wait(&requestUpGet, MPI_STATUS_IGNORE);
@@ -420,8 +408,11 @@ sizeY=10;
             MPI_Wait(&requestLeftGet, MPI_STATUS_IGNORE);
         }
         
-        // Calculate Internal Jacobi
-        error = one_jacobi_iteration(xLeft, yBottom, rowPoints+2, columnPoints+2, u_old, u,deltaX, deltaY, alpha, relax);
+        
+        // Calculate External Jacobi
+        error += one_jacobi_iterationOut(xLeft, yBottom, rowPoints+2, columnPoints+2, u_old, u,deltaX, deltaY, alpha, relax);
+        MPI_Allreduce(&error, &error, 1, MPI_DOUBLE, MPI_SUM,MPI_COMM_WORLD);
+
         
         if (myNeighbors[0] != -1){
             MPI_Wait(&requestUpSend, MPI_STATUS_IGNORE);
@@ -436,10 +427,7 @@ sizeY=10;
             MPI_Wait(&requestLeftSend, MPI_STATUS_IGNORE);
         }
         
-        // Calculate External Jacobi
-        error += one_jacobi_iterationOut(xLeft, yBottom, rowPoints+2, columnPoints+2, u_old, u,deltaX, deltaY, alpha, relax);
-        MPI_Allreduce(&error, &error, 1, MPI_DOUBLE, MPI_SUM,MPI_COMM_WORLD);
-
+        
         error=sqrt(error)/(n*m);
         iterationCount++;
 
@@ -449,6 +437,7 @@ sizeY=10;
         u = tmp;
     }
     t2 = MPI_Wtime();
+    MPI_Pcontrol(0);
     // Check the solution
     absoluteError= checkSolution(xLeft, yBottom, rowPoints+2, columnPoints+2, u_old, deltaX, deltaY, alpha);
     MPI_Allreduce(&absoluteError, &absoluteError, 1, MPI_DOUBLE, MPI_SUM,MPI_COMM_WORLD);

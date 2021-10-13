@@ -16,4 +16,4 @@
 cd $PBS_O_WORKDIR
 
 # Run executable #
-mpirun -np 1  Modified_Serial_Jacobi.x < input
+mpirun -np 1  Sequential_Jacobi.x < input
