@@ -30,7 +30,7 @@ each element is performed using a stencil-like pattern involving the surrounding
 In order to perform data-sharing, each process was allocated two extra rows and columns, in which it would store the elements it received from its neighbors.
 This resulted in a structure like shown below with the internal elements being white, outer in green, and the elements received from the neighboring processes shown in yellow.
 
-IMAGE HERE
+![Image of Yaktocat](https://github.com/lybrag/JacobiParallelism/blob/main/Images/Sharing.png)
 
 Using custom data types, each process transmitted and received the needed elements to and from the neighboring processes. While the data transfer was taking place, the internal
 elements were calculated to save time, followed by the external elements after the transfer was completed. After the calculation of each iteration, the error was calculated for
